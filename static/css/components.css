@@ -1,0 +1,572 @@
+/* ==============================================================================
+   COMPONENTES UI — ESTILO INSTITUCIONAL INACAP (ROJO, BLANCO Y NEGRO)
+   Botones, Tarjetas, Tablas, Badges, Formularios, Modales y Tablero Kanban.
+   Sobrio, minimalista, sin sobrecarga de colores estridentes ni emojis.
+   ============================================================================== */
+
+/* ==============================================================================
+   1. BOTONES INSTITUCIONALES
+   ============================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.65rem 1.15rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease-in-out;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Botón Primario: Rojo INACAP */
+.btn-primary {
+  background-color: var(--inacap-rojo);
+  color: #FFFFFF;
+  border-color: var(--inacap-rojo);
+}
+.btn-primary:hover {
+  background-color: var(--inacap-rojo-hover);
+  border-color: var(--inacap-rojo-hover);
+  color: #FFFFFF;
+}
+
+/* Botón Secundario: Negro Institucional */
+.btn-secondary {
+  background-color: var(--inacap-negro);
+  color: #FFFFFF;
+  border-color: var(--inacap-negro);
+}
+.btn-secondary:hover {
+  background-color: var(--inacap-carbon);
+  border-color: var(--inacap-carbon);
+  color: #FFFFFF;
+}
+
+/* Botón Outline: Borde sobrio */
+.btn-outline {
+  background-color: #FFFFFF;
+  color: var(--inacap-negro);
+  border-color: var(--gris-borde);
+}
+.btn-outline:hover {
+  background-color: var(--gris-fondo-suave);
+  border-color: var(--gris-claro);
+  color: var(--inacap-rojo);
+}
+
+/* Botón de Éxito / Acción Positiva: Oscuro sobrio */
+.btn-success {
+  background-color: #111827;
+  color: #FFFFFF;
+  border-color: #111827;
+}
+.btn-success:hover {
+  background-color: var(--inacap-rojo);
+  border-color: var(--inacap-rojo);
+}
+
+/* Botón de Advertencia / Pausa: Borde destacado */
+.btn-warning {
+  background-color: #FFFFFF;
+  color: #92400E;
+  border-color: #FCD34D;
+}
+.btn-warning:hover {
+  background-color: #FEF3C7;
+  border-color: #F59E0B;
+}
+
+/* Tamaños */
+.btn-sm {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* ==============================================================================
+   2. TARJETAS (CARDS)
+   ============================================================================== */
+.card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 1.5rem;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--inacap-negro);
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+/* Tarjeta de Módulo de Operación */
+.card-modulo {
+  background: #FFFFFF;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-modulo::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--border-card);
+  transition: background 0.15s ease;
+}
+
+.card-modulo:hover {
+  border-color: var(--inacap-rojo-borde);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-modulo:hover::before {
+  background: var(--inacap-rojo);
+}
+
+.card-modulo.bloqueado {
+  background: #F9FAFB;
+  opacity: 0.65;
+  border-style: dashed;
+}
+.card-modulo.bloqueado:hover::before {
+  background: var(--border-card);
+}
+
+.modulo-paso-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--inacap-rojo);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+/* ==============================================================================
+   3. TABLAS DE DATOS
+   ============================================================================== */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.table th {
+  background-color: #F9FAFB;
+  color: var(--gris-oscuro);
+  font-weight: 700;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border-card);
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background-color: #F9FAFB;
+}
+
+/* ==============================================================================
+   4. FORMULARIOS
+   ============================================================================== */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--inacap-negro);
+  margin-bottom: 0.35rem;
+}
+
+.form-label.required::after {
+  content: " *";
+  color: var(--inacap-rojo);
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  background-color: #FFFFFF;
+  border: 1px solid #D1D5DB;
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--inacap-rojo);
+  box-shadow: 0 0 0 3px rgba(211, 18, 42, 0.12);
+}
+
+textarea.form-control {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-help {
+  font-size: 0.75rem;
+  color: var(--gris-medio);
+  margin-top: 0.3rem;
+}
+
+/* ==============================================================================
+   5. BADGES Y ETIQUETAS DE ESTADO (SOBRIOS)
+   ============================================================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+  background-color: #F3F4F6;
+  color: #1F2937;
+  border: 1px solid #E5E7EB;
+  line-height: 1.2;
+}
+
+.badge-preinscrito {
+  background-color: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1D4ED8;
+}
+
+.badge-recepcionado {
+  background-color: #F5F3FF;
+  border-color: #DDD6FE;
+  color: #6D28D9;
+}
+
+.badge-taller {
+  background-color: #FFFBEB;
+  border-color: #FDE68A;
+  color: #B45309;
+}
+
+.badge-pausado {
+  background-color: #FFF7ED;
+  border-color: #FED7AA;
+  color: #C2410C;
+}
+
+.badge-listo {
+  background-color: #F0FDF4;
+  border-color: #BBF7D0;
+  color: #15803D;
+}
+
+.badge-entregado {
+  background-color: #18181B;
+  border-color: #18181B;
+  color: #FFFFFF;
+}
+
+.badge-custodia {
+  background-color: #F3F4F6;
+  border-color: #D1D5DB;
+  color: #4B5563;
+}
+
+/* Código de Taller Correlativo */
+.kanban-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--inacap-negro);
+  background: #F4F4F5;
+  border: 1px solid #E4E4E7;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* ==============================================================================
+   6. TABLERO KANBAN (TALLER TÉCNICO)
+   ============================================================================== */
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 900px) {
+  .kanban-board {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kanban-col {
+  background: #FFFFFF;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  box-shadow: var(--shadow-subtle);
+}
+
+.kanban-col-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 2px solid var(--inacap-negro);
+}
+
+.kanban-col-title {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--inacap-negro);
+}
+
+.kanban-counter {
+  background: var(--inacap-negro);
+  color: #FFFFFF;
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+
+.kanban-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 250px;
+}
+
+.kanban-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kanban-card:hover {
+  border-color: var(--inacap-rojo);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+}
+
+.kanban-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.kanban-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--inacap-negro);
+  margin-bottom: 0.35rem;
+}
+
+.kanban-card-meta {
+  font-size: 0.8rem;
+  color: var(--gris-medio);
+  line-height: 1.45;
+}
+
+/* ==============================================================================
+   7. CHECKLISTS DE TALLER
+   ============================================================================== */
+.checklist-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 0.75rem;
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.checklist-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.btn-chk {
+  background: #F3F4F6;
+  border: 1px solid #D1D5DB;
+  color: #4B5563;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.btn-chk.active-ok {
+  background: var(--inacap-negro);
+  border-color: var(--inacap-negro);
+  color: #FFFFFF;
+}
+
+.btn-chk.active-nok {
+  background: var(--inacap-rojo);
+  border-color: var(--inacap-rojo);
+  color: #FFFFFF;
+}
+
+.btn-chk.active-na {
+  background: #6B7280;
+  border-color: #6B7280;
+  color: #FFFFFF;
+}
+
+/* ==============================================================================
+   8. MODALES
+   ============================================================================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(18, 18, 20, 0.65);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-content {
+  background: #FFFFFF;
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 650px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-modal);
+  border: 1px solid var(--border-card);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--inacap-negro);
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--gris-medio);
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+.modal-close:hover {
+  color: var(--inacap-rojo);
+}
+
+.modal-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ==============================================================================
+   9. ESTRELLAS DE SATISFACCIÓN
+   ============================================================================== */
+.star-rating {
+  display: flex;
+  gap: 0.35rem;
+  font-size: 1.6rem;
+  color: #D1D5DB;
+  cursor: pointer;
+}
+
+.star-rating .star.active {
+  color: var(--inacap-rojo);
+}

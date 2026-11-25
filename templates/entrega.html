@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retiro y Cierre — Clínica del PC INACAP</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+</head>
+<body>
+
+  <div id="nav-placeholder"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <div class="step-indicator">Pasos 07, 08 y 09 • Mesón de Retiro y Despacho</div>
+        <h1 class="page-title">Coordinación, Entrega y Cierre de Atención</h1>
+        <p class="page-subtitle">Llamada telefónica, prueba conjunta presencial, control de terceros y encuesta de satisfacción.</p>
+      </div>
+      <div>
+        <button class="btn btn-outline btn-sm" onclick="conmutarRezagadosACustodia()">
+          Conmutar No Retirados a Custodia
+        </button>
+      </div>
+    </div>
+
+    <!-- Lista de Órdenes Listas para Entrega -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Equipos Disponibles para Entrega (V°B° Aprobado)</h2>
+        <span class="badge badge-listo" id="badge-listos">0 listos</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>N° Orden</th>
+              <th>Dispositivo</th>
+              <th>Propietario / Teléfono</th>
+              <th>Servicio Realizado</th>
+              <th>Paso 07: Llamada</th>
+              <th>Estado</th>
+              <th>Acción de Entrega</th>
+            </tr>
+          </thead>
+          <tbody id="entrega-tbody">
+            <tr>
+              <td colspan="7" style="text-align:center; padding:2rem; color:var(--gris-medio);">Cargando equipos listos desde la base de datos...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Historial de Órdenes Cerradas / Custodia -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Historial de Órdenes Finalizadas y en Custodia</h2>
+      </div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>N° Orden</th>
+              <th>Dispositivo</th>
+              <th>Titular</th>
+              <th>Fecha Cierre</th>
+              <th>Evaluación</th>
+              <th>Estado Final</th>
+            </tr>
+          </thead>
+          <tbody id="cerradas-tbody">
+            <!-- Dinámico -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Entrega, Prueba Conjunta y Encuesta (Paso 8 y 9) -->
+  <div class="modal-overlay" id="modal-entrega">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div>
+          <span class="kanban-code" id="ent-code">CLI-PC-2026-XXXX</span>
+          <h3 class="modal-title" style="margin-top: 0.35rem;">Entrega Presencial y Encuesta (Pasos 08 y 09)</h3>
+          <div id="ent-titular-info" style="font-size: 0.85rem; color: var(--gris-medio);">-</div>
+        </div>
+        <button class="modal-close" onclick="AppUtils.closeModal('modal-entrega')">&times;</button>
+      </div>
+
+      <!-- Paso 8: Prueba Conjunta -->
+      <div style="background-color: #F9FAFB; border: 1px solid var(--border-card); border-left: 4px solid var(--inacap-negro); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1.25rem;">
+        <h4 style="font-size: 0.92rem; color: var(--inacap-negro); font-weight: 800; margin-bottom: 0.35rem;">
+          Paso 08 • Demostración y Prueba Técnica de Retiro
+        </h4>
+        <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+          Se enciende el equipo frente a quien retira, se comprueba la solución al síntoma reportado y se devuelven los accesorios.
+        </p>
+
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; font-weight: 600; cursor: pointer; color: var(--text-main);">
+          <input type="checkbox" id="chk-prueba-ok" checked required style="accent-color: var(--inacap-rojo);">
+          Certifico que se realizó la prueba de encendido y funcionamiento conjunto a plena conformidad.
+        </label>
+      </div>
+
+      <!-- Validación de Retiro por Terceros -->
+      <div style="background-color: #F9FAFB; border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1.25rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; font-weight: 700; color: var(--inacap-negro); cursor: pointer;">
+          <input type="checkbox" id="chk-tercero" onchange="toggleTerceroFields(this.checked)" style="accent-color: var(--inacap-rojo);">
+          ¿El computador es retirado por una tercera persona autorizada?
+        </label>
+
+        <div id="tercero-fields" style="display: none; margin-top: 0.75rem;">
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label required">Nombre Completo del Tercero</label>
+              <input type="text" id="tercero-nombre" class="form-control" placeholder="Ej: Juan Pérez Soto">
+            </div>
+            <div class="form-group">
+              <label class="form-label required">RUT del Tercero</label>
+              <input type="text" id="tercero-rut" class="form-control" placeholder="11.222.333-4">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paso 9: Encuesta de Satisfacción -->
+      <div style="background: #FFFFFF; border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1.25rem;">
+        <h4 style="font-size: 0.92rem; color: var(--inacap-negro); font-weight: 800; margin-bottom: 0.35rem;">
+          Paso 09 • Encuesta de Satisfacción del Usuario (1 a 5)
+        </h4>
+
+        <div style="margin-bottom: 0.85rem;">
+          <div class="star-rating" id="star-container">
+            <span class="star active" onclick="setRating(1)">★</span>
+            <span class="star active" onclick="setRating(2)">★</span>
+            <span class="star active" onclick="setRating(3)">★</span>
+            <span class="star active" onclick="setRating(4)">★</span>
+            <span class="star active" onclick="setRating(5)">★</span>
+          </div>
+          <div id="rating-label" style="font-size: 0.8rem; color: var(--gris-medio); margin-top: 0.25rem; font-weight: 600;">
+            5 de 5 estrellas (Excelente)
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Comentarios o sugerencias del titular:</label>
+          <textarea id="enc-comentario" class="form-control" placeholder="¿Cómo calificaría la atención recibida por los estudiantes?..."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button class="btn btn-outline btn-sm" onclick="AppUtils.closeModal('modal-entrega')">Cancelar</button>
+        <button class="btn btn-secondary btn-sm" onclick="confirmarCierreOrden()">
+          Confirmar Entrega y Archivar Orden ➔
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer-placeholder"></div>
+
+  <script src="/static/js/api_cliente.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script>
+    document.getElementById('nav-placeholder').innerHTML = AppUtils.renderHeader('ent');
+    document.getElementById('footer-placeholder').innerHTML = AppUtils.renderFooter();
+
+    let ordenActivaEntregaId = null;
+    let notaSeleccionada = 5;
+
+    async function cargarTablasEntrega() {
+      try {
+        const ordenes = await ClinicaAPI.getOrdenes();
+
+        const listos = ordenes.filter(o => o.estado === 'Listo para Entrega');
+        document.getElementById('badge-listos').textContent = `${listos.length} listos`;
+        const tbodyListos = document.getElementById('entrega-tbody');
+        tbodyListos.innerHTML = '';
+
+        if (listos.length === 0) {
+          tbodyListos.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--gris-medio);">No hay equipos en espera de entrega.</td></tr>';
+        } else {
+          listos.forEach(o => {
+            const tr = document.createElement('tr');
+            const llamadaTexto = o.llamadaRealizada 
+              ? '<span class="badge badge-entregado">Contactado</span>' 
+              : `<button class="btn btn-outline btn-sm" onclick="registrarLlamada(${o.idOrden}, '${o.propietario.telefono}')">Registrar Llamada</button>`;
+
+            tr.innerHTML = `
+              <td><span class="kanban-code">${o.etiquetaTaller}</span></td>
+              <td><strong>${o.dispositivo.tipo} ${o.dispositivo.marca}</strong><br><small style="color:var(--gris-medio);">${o.dispositivo.modelo}</small></td>
+              <td>${o.propietario.nombre}<br><small style="color:var(--text-secondary);">${o.propietario.telefono}</small></td>
+              <td><span style="font-weight:700;">${o.tipoServicio}</span></td>
+              <td>${llamadaTexto}</td>
+              <td>${AppUtils.getStatusBadge(o.estado)}</td>
+              <td>
+                <button class="btn btn-secondary btn-sm" onclick="abrirModalEntrega(${o.idOrden})">
+                  Entregar al Titular ➔
+                </button>
+              </td>
+            `;
+            tbodyListos.appendChild(tr);
+          });
+        }
+
+        const cerrados = ordenes.filter(o => ['Entregado Conforme', 'En Custodia'].includes(o.estado));
+        const tbodyCerrados = document.getElementById('cerradas-tbody');
+        tbodyCerrados.innerHTML = '';
+
+        if (cerrados.length === 0) {
+          tbodyCerrados.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--gris-claro); padding:1.5rem 0;">No hay órdenes finalizadas en el historial.</td></tr>';
+        } else {
+          cerrados.forEach(o => {
+            const tr = document.createElement('tr');
+            const estrellas = (o.encuesta && o.encuesta.nota) ? '★'.repeat(o.encuesta.nota) : 'Sin encuesta';
+            tr.innerHTML = `
+              <td><strong>${o.etiquetaTaller}</strong></td>
+              <td>${o.dispositivo.tipo} ${o.dispositivo.marca}</td>
+              <td>${o.propietario.nombre}</td>
+              <td>${o.fechaCierre || '-'}</td>
+              <td><span style="color:var(--inacap-rojo); font-weight:800;">${estrellas}</span></td>
+              <td>${AppUtils.getStatusBadge(o.estado)}</td>
+            `;
+            tbodyCerrados.appendChild(tr);
+          });
+        }
+      } catch (e) {
+        console.error('Error al cargar tablas de entrega:', e);
+      }
+    }
+
+    async function registrarLlamada(idOrden, fono) {
+      if (confirm(`¿Confirmar llamada telefónica al número ${fono} para coordinar el retiro?`)) {
+        await ClinicaAPI.marcarLlamada(idOrden, true);
+        AppUtils.showToast('Llamada registrada (Paso 07).', 'success');
+        cargarTablasEntrega();
+      }
+    }
+
+    async function abrirModalEntrega(idOrden) {
+      const orden = await ClinicaAPI.getOrdenPorId(idOrden);
+      if (!orden) return;
+
+      ordenActivaEntregaId = idOrden;
+      document.getElementById('ent-code').textContent = orden.etiquetaTaller;
+      document.getElementById('ent-titular-info').textContent = `Titular: ${orden.propietario.nombre} | RUT: ${orden.propietario.rut} | ${orden.dispositivo.tipo} ${orden.dispositivo.marca}`;
+      
+      document.getElementById('chk-tercero').checked = false;
+      document.getElementById('tercero-fields').style.display = 'none';
+      document.getElementById('enc-comentario').value = '';
+      setRating(5);
+
+      AppUtils.openModal('modal-entrega');
+    }
+
+    function toggleTerceroFields(mostrar) {
+      document.getElementById('tercero-fields').style.display = mostrar ? 'block' : 'none';
+    }
+
+    function setRating(nota) {
+      notaSeleccionada = nota;
+      const stars = document.querySelectorAll('#star-container .star');
+      stars.forEach((s, idx) => {
+        if (idx < nota) s.classList.add('active');
+        else s.classList.remove('active');
+      });
+
+      const labelMap = {
+        1: '1 estrella (Muy insatisfecho)',
+        2: '2 estrellas (Regular)',
+        3: '3 estrellas (Bueno)',
+        4: '4 estrellas (Muy bueno)',
+        5: '5 estrellas (Excelente)'
+      };
+      document.getElementById('rating-label').textContent = `${nota} de 5 estrellas (${labelMap[nota]})`;
+    }
+
+    async function confirmarCierreOrden() {
+      const pruebaOk = document.getElementById('chk-prueba-ok').checked;
+      if (!pruebaOk) {
+        AppUtils.showToast('Debe certificar la prueba conjunta de encendido.', 'warning');
+        return;
+      }
+
+      const esTercero = document.getElementById('chk-tercero').checked;
+      const nomTercero = document.getElementById('tercero-nombre').value.trim();
+      const rutTercero = document.getElementById('tercero-rut').value.trim();
+
+      if (esTercero && (!nomTercero || !rutTercero)) {
+        AppUtils.showToast('Ingrese nombre y RUT del tercero.', 'warning');
+        return;
+      }
+
+      const comentario = document.getElementById('enc-comentario').value.trim();
+
+      const payload = {
+        nota: notaSeleccionada,
+        comentario: comentario,
+        retiradoPorTercero: esTercero,
+        nombreTercero: nomTercero,
+        rutTercero: rutTercero
+      };
+
+      try {
+        await ClinicaAPI.registrarEntrega(ordenActivaEntregaId, payload);
+        AppUtils.closeModal('modal-entrega');
+        AppUtils.showToast('Atención cerrada. Equipo entregado conforme.', 'success');
+        cargarTablasEntrega();
+      } catch (e) {
+        AppUtils.showToast('Error al registrar entrega', 'danger');
+      }
+    }
+
+    async function conmutarRezagadosACustodia() {
+      const ordenes = await ClinicaAPI.getOrdenes();
+      const pendientes = ordenes.filter(o => ['Listo para Entrega', 'En Taller'].includes(o.estado));
+
+      if (pendientes.length === 0) {
+        AppUtils.showToast('No hay equipos pendientes de custodia.', 'info');
+        return;
+      }
+
+      if (confirm(`¿Desea conmutar ${pendientes.length} equipos no retirados al estado "En Custodia"?`)) {
+        for (const ord of pendientes) {
+          await ClinicaAPI.cambiarEstado(ord.idOrden, 'En Custodia');
+        }
+        AppUtils.showToast('Equipos conmutados a custodia.', 'warning');
+        cargarTablasEntrega();
+      }
+    }
+
+    cargarTablasEntrega();
+  </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acceso Restringido — Clínica del PC INACAP</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+</head>
+<body style="min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; background: var(--bg-canvas);">
+
+  <div id="nav-placeholder"></div>
+
+  <main class="main-content" style="max-width: 580px; margin: 3.5rem auto; text-align: center;">
+    <div class="card" style="padding: 2.5rem 2rem; border-top: 4px solid var(--inacap-rojo); box-shadow: var(--shadow-card);">
+      <span class="badge" style="background: #FFF5F5; color: var(--inacap-rojo); border: 1px solid var(--inacap-rojo-borde); font-size: 0.78rem; padding: 0.35rem 0.8rem; margin-bottom: 1rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em;">
+        Control de Acceso por Roles (RBAC)
+      </span>
+      <h1 style="font-size: 1.45rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.65rem;">
+        Módulo Restringido para su Perfil
+      </h1>
+      <p style="font-size: 0.88rem; color: var(--gris-medio); line-height: 1.5; margin-bottom: 1.5rem;">
+        Ha iniciado sesión como <strong>{{ usuario.nombre_completo|default:usuario.nombre_usuario }}</strong> con el rol de <span class="badge" style="text-transform: uppercase; font-size: 0.72rem;">{{ rol_actual }}</span>. 
+        De acuerdo a las directrices operativas de la jornada, esta sección requiere uno de los siguientes perfiles:
+      </p>
+
+      <div style="background: #F9FAFB; border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.5rem; font-size: 0.84rem; color: var(--text-main); text-align: left;">
+        <strong style="color: var(--inacap-negro); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em;">Perfiles Autorizados:</strong>
+        <ul style="margin: 0.35rem 0 0 1.25rem; padding: 0;">
+          {% for r in roles_requeridos %}
+            <li style="text-transform: capitalize; font-weight: 700; color: var(--inacap-rojo);">{{ r }}</li>
+          {% endfor %}
+          <li style="font-weight: 600; color: var(--gris-medio);">Administrador (Acceso Universal)</li>
+        </ul>
+      </div>
+
+      <div style="display: flex; gap: 0.65rem; justify-content: center; flex-wrap: wrap;">
+        {% if rol_actual == 'tecnico' %}
+          <a href="/taller/" class="btn btn-primary">Ir a Mesa de Taller ➔</a>
+        {% elif rol_actual == 'recepcion' %}
+          <a href="/recepcion/" class="btn btn-secondary">Ir a Consola Mesón ➔</a>
+        {% elif rol_actual == 'docente' %}
+          <a href="/control-calidad/" class="btn btn-primary">Ir a Control de Calidad ➔</a>
+        {% else %}
+          <a href="/" class="btn btn-secondary">Volver al Panel Principal ➔</a>
+        {% endif %}
+        <button onclick="ClinicaAPI.logout()" class="btn btn-outline">Cambiar de Cuenta</button>
+      </div>
+    </div>
+  </main>
+
+  <div id="footer-placeholder"></div>
+
+  <script src="/static/js/api_cliente.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script>
+    document.getElementById('nav-placeholder').innerHTML = AppUtils.renderHeader('');
+    document.getElementById('footer-placeholder').innerHTML = AppUtils.renderFooter();
+  </script>
+</body>
+</html>

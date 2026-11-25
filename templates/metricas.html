@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Métricas y Reportes — Clínica del PC INACAP</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+</head>
+<body>
+
+  <div id="nav-placeholder"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <div class="step-indicator">Consola Administrativa • Docente Supervisor</div>
+        <h1 class="page-title">Métricas, Estadísticas y Reportes de Gestión</h1>
+        <p class="page-subtitle">Consolidado estadístico calculado directamente desde la base de datos relacional SQLite.</p>
+      </div>
+      <div style="display: flex; gap: 0.5rem;">
+        <button class="btn btn-outline btn-sm" onclick="exportarCSV()">Exportar Planilla CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportarJSON()">Descargar Backup JSON</button>
+      </div>
+    </div>
+
+    <!-- Indicadores Generales (Sobrios INACAP) -->
+    <div class="grid-4">
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="m-total">0</div>
+          <div class="stat-label">Total Órdenes Atendidas</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="m-satisfaccion" style="color: var(--inacap-rojo);">5.0 ★</div>
+          <div class="stat-label">Satisfacción Promedio</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="m-tasa-exito">100%</div>
+          <div class="stat-label">Tasa Entrega Conforme</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="m-alumnos">60-70</div>
+          <div class="stat-label">Estudiantes en Taller</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Distribución y Gráficos -->
+    <div class="grid-2" style="margin-top: 1.5rem;">
+      <!-- Distribución por Tipo de Servicio -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Distribución por Tipo de Servicio</h2>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1.15rem;">
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 700; margin-bottom: 0.35rem;">
+              <span>Mantención Física (Limpieza y Pasta Térmica)</span>
+              <span id="pct-fisica">0% (0)</span>
+            </div>
+            <div style="background: #E5E7EB; height: 8px; border-radius: 4px; overflow: hidden;">
+              <div id="bar-fisica" style="background: var(--inacap-rojo); width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 700; margin-bottom: 0.35rem;">
+              <span>Mantención Lógica (Virus, Temporales, SO)</span>
+              <span id="pct-logica">0% (0)</span>
+            </div>
+            <div style="background: #E5E7EB; height: 8px; border-radius: 4px; overflow: hidden;">
+              <div id="bar-logica" style="background: var(--inacap-negro); width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 700; margin-bottom: 0.35rem;">
+              <span>Formateo e Instalación Limpia</span>
+              <span id="pct-formateo">0% (0)</span>
+            </div>
+            <div style="background: #E5E7EB; height: 8px; border-radius: 4px; overflow: hidden;">
+              <div id="bar-formateo" style="background: #6B7280; width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen de Estados del Proceso -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Resumen de Estados del Flujo</h2>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+          <div style="background:#FFFFFF; padding:0.75rem 1rem; border-radius:6px; border:1px solid var(--border-card);">
+            <div style="font-size:0.75rem; color:var(--gris-medio); font-weight:700; text-transform:uppercase;">1. Pre-inscritos QR:</div>
+            <div style="font-size:1.4rem; font-weight:800; color:var(--inacap-negro);" id="st-pre">0</div>
+          </div>
+
+          <div style="background:#FFFFFF; padding:0.75rem 1rem; border-radius:6px; border:1px solid var(--border-card);">
+            <div style="font-size:0.75rem; color:var(--gris-medio); font-weight:700; text-transform:uppercase;">2-3. Mesón Recepción:</div>
+            <div style="font-size:1.4rem; font-weight:800; color:var(--inacap-negro);" id="st-rec">0</div>
+          </div>
+
+          <div style="background:#FFFFFF; padding:0.75rem 1rem; border-radius:6px; border:1px solid var(--border-card);">
+            <div style="font-size:0.75rem; color:var(--gris-medio); font-weight:700; text-transform:uppercase;">4-5. En Taller Técnico:</div>
+            <div style="font-size:1.4rem; font-weight:800; color:var(--inacap-rojo);" id="st-tal">0</div>
+          </div>
+
+          <div style="background:#FFFFFF; padding:0.75rem 1rem; border-radius:6px; border:1px solid var(--border-card);">
+            <div style="font-size:0.75rem; color:var(--gris-medio); font-weight:700; text-transform:uppercase;">Pausado / Traspaso:</div>
+            <div style="font-size:1.4rem; font-weight:800; color:#B45309;" id="st-pau">0</div>
+          </div>
+
+          <div style="background:#FFFFFF; padding:0.75rem 1rem; border-radius:6px; border:1px solid var(--border-card);">
+            <div style="font-size:0.75rem; color:var(--gris-medio); font-weight:700; text-transform:uppercase;">6. Listo para Entrega:</div>
+            <div style="font-size:1.4rem; font-weight:800; color:#15803D;" id="st-lis">0</div>
+          </div>
+
+          <div style="background:#FFFFFF; padding:0.75rem 1rem; border-radius:6px; border:1px solid var(--border-card);">
+            <div style="font-size:0.75rem; color:var(--gris-medio); font-weight:700; text-transform:uppercase;">7-9. Entregados Conformes:</div>
+            <div style="font-size:1.4rem; font-weight:800; color:var(--inacap-negro);" id="st-ent">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Opiniones y Satisfacción de la Comunidad -->
+    <div class="card" style="margin-top: 1.5rem;">
+      <div class="card-header">
+        <h2 class="card-title">Encuestas de Satisfacción Registradas</h2>
+      </div>
+
+      <div id="encuestas-container" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <!-- Dinámico -->
+      </div>
+    </div>
+  </main>
+
+  <div id="footer-placeholder"></div>
+
+  <script src="/static/js/api_cliente.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script>
+    document.getElementById('nav-placeholder').innerHTML = AppUtils.renderHeader('met');
+    document.getElementById('footer-placeholder').innerHTML = AppUtils.renderFooter();
+
+    let ordenesParaExportar = [];
+
+    async function cargarMetricas() {
+      try {
+        const metricas = await ClinicaAPI.getMetricas();
+        const ordenes = await ClinicaAPI.getOrdenes();
+        ordenesParaExportar = ordenes;
+
+        document.getElementById('m-total').textContent = metricas.total;
+        document.getElementById('m-satisfaccion').textContent = metricas.promedioSatisfaccion + ' ★';
+
+        const entregados = metricas.entregado || 0;
+        const total = metricas.total || 1;
+        const tasa = Math.round((entregados / total) * 100);
+        document.getElementById('m-tasa-exito').textContent = `${tasa}%`;
+
+        document.getElementById('st-pre').textContent = metricas.preinscrito;
+        document.getElementById('st-rec').textContent = metricas.recepcionado;
+        document.getElementById('st-tal').textContent = metricas.enTaller;
+        document.getElementById('st-lis').textContent = metricas.listo;
+        document.getElementById('st-ent').textContent = metricas.entregado;
+
+        const nFisica = ordenes.filter(o => o.tipoServicio === 'Mantención Física').length;
+        const nLogica = ordenes.filter(o => o.tipoServicio === 'Mantención Lógica').length;
+        const nForm = ordenes.filter(o => o.tipoServicio === 'Formateo').length;
+        const totalServ = ordenes.length || 1;
+
+        const pFis = Math.round((nFisica / totalServ) * 100);
+        const pLog = Math.round((nLogica / totalServ) * 100);
+        const pFor = Math.round((nForm / totalServ) * 100);
+
+        document.getElementById('pct-fisica').textContent = `${pFis}% (${nFisica})`;
+        document.getElementById('bar-fisica').style.width = `${pFis}%`;
+
+        document.getElementById('pct-logica').textContent = `${pLog}% (${nLogica})`;
+        document.getElementById('bar-logica').style.width = `${pLog}%`;
+
+        document.getElementById('pct-formateo').textContent = `${pFor}% (${nForm})`;
+        document.getElementById('bar-formateo').style.width = `${pFor}%`;
+
+        const containerEnc = document.getElementById('encuestas-container');
+        containerEnc.innerHTML = '';
+        const conOpiniones = ordenes.filter(o => o.encuesta && o.encuesta.nota);
+
+        if (conOpiniones.length === 0) {
+          containerEnc.innerHTML = '<div style="color:var(--gris-claro); font-size:0.85rem;">Aún no se registran encuestas en la base de datos.</div>';
+        } else {
+          conOpiniones.forEach(o => {
+            const div = document.createElement('div');
+            div.style.cssText = 'background:#FFFFFF; border:1px solid var(--border-card); border-left:3px solid var(--inacap-rojo); border-radius:4px; padding:0.85rem; font-size:0.85rem;';
+            div.innerHTML = `
+              <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem;">
+                <strong>${o.propietario.nombre} (${o.dispositivo.tipo} ${o.dispositivo.marca})</strong>
+                <span style="color:var(--inacap-rojo); font-weight:800;">${'★'.repeat(o.encuesta.nota)}</span>
+              </div>
+              <div style="color:var(--text-secondary); font-style:italic;">"${o.encuesta.comentario || 'Sin comentario escrito.'}"</div>
+              <div style="color:var(--gris-medio); font-size:0.75rem; margin-top:0.35rem;">Fecha: ${o.encuesta.fecha || ''} | Técnico responsable: ${o.tecnicoAsignado || 'Equipo FHyS'}</div>
+            `;
+            containerEnc.appendChild(div);
+          });
+        }
+      } catch (e) {
+        console.error('Error al cargar métricas:', e);
+      }
+    }
+
+    function exportarJSON() {
+      const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(ordenesParaExportar, null, 2));
+      const a = document.createElement('a');
+      a.setAttribute("href", str);
+      a.setAttribute("download", `clinica_pc_sqlite_backup_${new Date().toISOString().substring(0,10)}.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      AppUtils.showToast('Respaldo JSON descargado.', 'success');
+    }
+
+    function exportarCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "N_Orden,RUT_Titular,Nombre_Titular,Telefono,Tipo_Dispositivo,Marca,Modelo,Serie,Servicio,Estado,Tecnico,Encendio_Inicial,Nota_Encuesta\n";
+
+      ordenesParaExportar.forEach(o => {
+        const fila = [
+          o.etiquetaTaller || o.idOrden,
+          o.propietario.rut || '',
+          `"${o.propietario.nombre || ''}"`,
+          o.propietario.telefono || '',
+          o.dispositivo.tipo || '',
+          o.dispositivo.marca || '',
+          `"${o.dispositivo.modelo || ''}"`,
+          o.dispositivo.numeroSerie || '',
+          o.tipoServicio || '',
+          o.estado || '',
+          `"${o.tecnicoAsignado || ''}"`,
+          o.encendidoInicial ? 'SI' : 'NO',
+          o.encuesta ? o.encuesta.nota : ''
+        ].join(",");
+        csvContent += fila + "\n";
+      });
+
+      const uri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", uri);
+      link.setAttribute("download", `reporte_clinica_pc_${new Date().toISOString().substring(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      AppUtils.showToast('Planilla CSV exportada.', 'success');
+    }
+
+    cargarMetricas();
+  </script>
+</body>
+</html>

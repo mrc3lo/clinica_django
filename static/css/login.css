@@ -1,0 +1,151 @@
+/* ==============================================================================
+   ESTILOS DE ACCESO (LOGIN) — IDENTIDAD INSTITUCIONAL INACAP
+   Rojo (#D3122A), Negro (#121214) y Blanco (#FFFFFF).
+   ============================================================================== */
+
+.login-body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #121214;
+  background-image: 
+    radial-gradient(at 100% 0%, rgba(211, 18, 42, 0.18) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(31, 32, 36, 0.8) 0px, transparent 50%);
+  padding: 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.login-container {
+  width: 100%;
+  max-width: 440px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  border-top: 4px solid #D3122A;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  padding: 2.5rem 2rem;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.login-badge {
+  display: inline-block;
+  background: #D3122A;
+  color: #FFFFFF;
+  font-size: 0.75rem;
+  font-weight: 900;
+  padding: 0.3rem 0.75rem;
+  border-radius: 4px;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.85rem;
+  text-transform: uppercase;
+}
+
+.login-title {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.35rem;
+}
+
+.login-subtitle {
+  font-size: 0.86rem;
+  color: #6B7280;
+  line-height: 1.4;
+}
+
+.login-form .form-group {
+  margin-bottom: 1.25rem;
+}
+
+.login-form label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.4rem;
+}
+
+.login-form input {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #D1D5DB;
+  font-size: 0.95rem;
+  background: #FFFFFF;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.login-form input:focus {
+  outline: none;
+  border-color: #D3122A;
+  box-shadow: 0 0 0 3px rgba(211, 18, 42, 0.15);
+}
+
+.btn-login {
+  width: 100%;
+  padding: 0.85rem;
+  background: #D3122A;
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  margin-top: 0.5rem;
+}
+
+.btn-login:hover {
+  background: #B50E23;
+}
+
+.demo-credentials-box {
+  margin-top: 1.75rem;
+  padding: 1.15rem;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: #4B5563;
+}
+
+.demo-credentials-box h4 {
+  margin: 0 0 0.65rem 0;
+  font-weight: 800;
+  color: #111827;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.demo-credentials-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.demo-chip {
+  cursor: pointer;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  transition: all 0.15s ease;
+}
+
+.demo-chip:hover {
+  border-color: #D3122A;
+  background: #FFF5F5;
+}
+
+.demo-chip strong {
+  color: #111827;
+  display: block;
+  font-size: 0.8rem;
+}

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acceso al Sistema — Clínica del PC INACAP</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/login.css">
+</head>
+<body class="login-body">
+
+  <div class="login-container">
+    <div class="login-header">
+      <div class="login-badge">INACAP • TI3043</div>
+      <h1 class="login-title">Clínica del PC</h1>
+      <p class="login-subtitle">Sistema Modular con Control de Acceso por Roles (RBAC)</p>
+    </div>
+
+    <!-- Mensaje de alerta de error -->
+    <div id="alerta-error" style="display: none; background: #FEE2E2; border: 1px solid #F87171; color: #991B1B; padding: 0.65rem 0.85rem; border-radius: 8px; font-size: 0.82rem; margin-bottom: 1.25rem;">
+      <!-- Texto de error dinámico -->
+    </div>
+
+    <form class="login-form" id="formulario-login" onsubmit="ejecutarLogin(event)">
+      <div class="form-group">
+        <label for="campo-usuario">Nombre de Usuario:</label>
+        <input type="text" id="campo-usuario" placeholder="Ej: docente o tecnico1" required autofocus autocomplete="username">
+      </div>
+
+      <div class="form-group">
+        <label for="campo-clave">Contraseña:</label>
+        <input type="password" id="campo-clave" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+
+      <button type="submit" class="btn-login" id="boton-ingresar">
+        Entrar al Sistema ➔
+      </button>
+    </form>
+
+    <!-- Accesos rápidos de prueba organizados por rol y función -->
+    <div class="demo-credentials-box">
+      <h4>🔑 Perfiles del Sistema (Click para auto-completar):</h4>
+      <div class="demo-credentials-list">
+        <div class="demo-chip" onclick="cargarDemo('docente', 'docente123')">
+          <strong>👨‍🏫 Docente:</strong> docente<br>
+          <small style="color:#059669;">V°B° Calidad y Métricas</small>
+        </div>
+        <div class="demo-chip" onclick="cargarDemo('tecnico1', 'tecnico123')">
+          <strong>🔧 Alumno Técnico:</strong> tecnico1<br>
+          <small style="color:#D97706;">Mesa Taller y Checklists</small>
+        </div>
+        <div class="demo-chip" onclick="cargarDemo('recepcion', 'recepcion123')">
+          <strong>📥 Recepción:</strong> recepcion<br>
+          <small style="color:#7C3AED;">Mesón, Admisión y Retiro</small>
+        </div>
+        <div class="demo-chip" onclick="cargarDemo('admin', 'admin123')">
+          <strong>⚙️ Administrador:</strong> admin<br>
+          <small style="color:#BE123C;">Acceso total a todo</small>
+        </div>
+      </div>
+      <div style="margin-top: 0.75rem; text-align: center;">
+        <a href="/preinscripcion/" style="color: #0071E3; font-weight: 600; text-decoration: none;">
+          📱 Ir a Pre-inscripción Pública (Sin login)
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/api_cliente.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script>
+    function cargarDemo(usuario, clave) {
+      document.getElementById('campo-usuario').value = usuario;
+      document.getElementById('campo-clave').value = clave;
+    }
+
+    async function ejecutarLogin(event) {
+      event.preventDefault();
+      const usuario = document.getElementById('campo-usuario').value.trim();
+      const clave = document.getElementById('campo-clave').value.trim();
+      const alerta = document.getElementById('alerta-error');
+      const boton = document.getElementById('boton-ingresar');
+
+      alerta.style.display = 'none';
+      boton.disabled = true;
+      boton.textContent = 'Verificando credenciales...';
+
+      try {
+        const respuesta = await ClinicaAPI.login(usuario, clave);
+        
+        // Guardamos el usuario activo en sesión para que la barra de navegación se adapte a su rol
+        AppUtils.guardarUsuarioEnSesion(respuesta.usuario);
+        AppUtils.showToast(`¡Bienvenido/a ${respuesta.usuario.nombre_completo}! Ingresando como ${respuesta.usuario.rol}...`, 'success');
+        
+        // Redirigimos al módulo específico que le corresponde
+        setTimeout(() => {
+          window.location.href = respuesta.url_destino || '/';
+        }, 500);
+      } catch (error) {
+        alerta.textContent = error.message || 'Error al autenticar.';
+        alerta.style.display = 'block';
+        boton.disabled = false;
+        boton.textContent = 'Entrar al Sistema ➔';
+      }
+    }
+  </script>
+</body>
+</html>

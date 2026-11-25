@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pre-inscripción Código QR — Clínica del PC INACAP</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+</head>
+<body>
+
+  <div id="nav-placeholder"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <div class="step-indicator">Paso 01 • Portal Móvil Comunitario</div>
+        <h1 class="page-title">Pre-inscripción de Dispositivo</h1>
+        <p class="page-subtitle">Portal público para enrolamiento de computadores con validación de RUT y registro en la base de datos local.</p>
+      </div>
+      <div>
+        <a href="/login/" class="btn btn-outline btn-sm">Acceso Funcionarios ➔</a>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Formulario de Preinscripción -->
+      <div class="card" id="form-card">
+        <div class="card-header">
+          <h2 class="card-title">Ficha de Ingreso y Datos del Titular</h2>
+          <span style="font-size: 0.78rem; color: var(--gris-medio); font-weight: 600;">Campos obligatorios (*)</span>
+        </div>
+
+        <form id="pre-form" onsubmit="enviarPreinscripcion(event)">
+          <div style="font-size: 0.76rem; font-weight: 800; color: var(--inacap-rojo); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.85rem;">
+            1. Identificación y Contacto
+          </div>
+          
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label required">RUT del Titular</label>
+              <input type="text" id="rut" class="form-control" placeholder="12.345.678-9" required onblur="formatearYBuscarRut(this)">
+              <div id="rut-feedback" class="form-help">Formato con puntos y guion (Módulo 11).</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label required">Nombre Completo</label>
+              <input type="text" id="nombre" class="form-control" placeholder="Ej: Marcela González Soto" required>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label required">Teléfono Celular de Contacto</label>
+              <input type="tel" id="telefono" class="form-control" placeholder="+56 9 1234 5678" required>
+              <div class="form-help">Canal directo para coordinar el retiro (Paso 07).</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label required">Correo Electrónico</label>
+              <input type="email" id="email" class="form-control" placeholder="nombre@correo.cl" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label required">Comuna de Procedencia</label>
+            <select id="comuna" class="form-control" required>
+              <option value="San Pedro de la Paz">San Pedro de la Paz</option>
+              <option value="Concepción">Concepción</option>
+              <option value="Coronel">Coronel</option>
+              <option value="Chiguayante">Chiguayante</option>
+              <option value="Talcahuano">Talcahuano</option>
+              <option value="Hualpén">Hualpén</option>
+              <option value="Lota">Lota</option>
+              <option value="Otra">Otra comuna</option>
+            </select>
+          </div>
+
+          <div style="font-size: 0.76rem; font-weight: 800; color: var(--inacap-rojo); letter-spacing: 0.05em; text-transform: uppercase; margin-top: 1.5rem; margin-bottom: 0.85rem;">
+            2. Características del Equipo
+          </div>
+
+          <div class="grid-3">
+            <div class="form-group">
+              <label class="form-label required">Tipo de Dispositivo</label>
+              <select id="tipo" class="form-control" required>
+                <option value="Notebook">Notebook / Portátil</option>
+                <option value="All-in-One">All-in-One (Todo en Uno)</option>
+                <option value="Desktop">PC de Escritorio (Torre)</option>
+                <option value="Mac">Mac / MacBook</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label required">Marca</label>
+              <input type="text" id="marca" class="form-control" placeholder="Ej: Lenovo, HP, Asus, Dell" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Modelo Preliminar</label>
+              <input type="text" id="modelo" class="form-control" placeholder="Ej: Pavilion 15, IdeaPad 3">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label required">Servicio Principal Solicitado</label>
+              <select id="servicio" class="form-control" required>
+                <option value="Mantención Física">Mantención Física (Limpieza y pasta térmica)</option>
+                <option value="Mantención Lógica">Mantención Lógica (Optimización, virus, temporales)</option>
+                <option value="Formateo">Formateo e Instalación de Sistema Operativo</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Accesorios con los que acudirá</label>
+              <input type="text" id="accesorios" class="form-control" placeholder="Ej: Con cargador, mouse, bolso">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label required">Falla o Síntoma Detectado</label>
+            <textarea id="falla" class="form-control" placeholder="Describa brevemente qué problema presenta su equipo..." required></textarea>
+          </div>
+
+          <!-- Términos y Consentimiento Informado (Ley 19.628) -->
+          <div style="background: #F9FAFB; border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 1.15rem; margin-top: 1.25rem; margin-bottom: 1.35rem;">
+            <label style="display: flex; align-items: flex-start; gap: 0.65rem; font-size: 0.84rem; cursor: pointer; color: var(--text-secondary); line-height: 1.45;">
+              <input type="checkbox" id="consentimiento" required style="margin-top: 0.25rem; accent-color: var(--inacap-rojo);" checked>
+              <span>
+                <strong style="color: var(--inacap-negro);">Acepto los Términos de Servicio y Consentimiento de Datos (Ley N° 19.628)</strong>.<br>
+                Autorizo el tratamiento de mis datos personales exclusivamente para la gestión académica del evento. Declaro entender que el taller no responde por datos no respaldados en caso de formateo ni por fallas preexistentes de encendido.
+                <a href="javascript:void(0)" onclick="AppUtils.openModal('modal-terminos')" style="color: var(--inacap-rojo); font-weight: 700; text-decoration: underline;">Ver texto legal completo</a>.
+              </span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="btn-enviar-pre" style="padding: 0.85rem;">
+            Confirmar Pre-inscripción ➔
+          </button>
+        </form>
+      </div>
+
+      <!-- Afiche QR y Comprobante Digital (Elegante INACAP) -->
+      <div>
+        <div style="background: #121214; color: #FFFFFF; border-radius: var(--radius-md); padding: 2rem; text-align: center; border-top: 4px solid var(--inacap-rojo); box-shadow: var(--shadow-card);">
+          <span class="badge" style="background: rgba(255,255,255,0.12); color:#FFFFFF; border: 1px solid rgba(255,255,255,0.2); margin-bottom:1rem;">
+            Acceso Digital QR
+          </span>
+          <h3 style="font-size: 1.35rem; font-weight: 800; margin-bottom: 0.25rem; letter-spacing: -0.01em;">Clínica del PC INACAP</h3>
+          <p style="font-size: 0.84rem; color: #9CA3AF; margin-bottom: 1.5rem;">Sede San Pedro de la Paz • Escaneo para ingreso directo</p>
+          
+          <div style="background:#FFFFFF; padding: 1.25rem; border-radius: 8px; display: inline-block; margin-bottom: 1.25rem;">
+            <svg width="140" height="140" viewBox="0 0 100 100">
+              <rect width="100" height="100" fill="#FFFFFF"/>
+              <rect x="10" y="10" width="25" height="25" fill="#121214" rx="1"/>
+              <rect x="15" y="15" width="15" height="15" fill="#FFFFFF"/>
+              <rect x="19" y="19" width="7" height="7" fill="#D3122A"/>
+
+              <rect x="65" y="10" width="25" height="25" fill="#121214" rx="1"/>
+              <rect x="70" y="15" width="15" height="15" fill="#FFFFFF"/>
+              <rect x="74" y="19" width="7" height="7" fill="#D3122A"/>
+
+              <rect x="10" y="65" width="25" height="25" fill="#121214" rx="1"/>
+              <rect x="15" y="70" width="15" height="15" fill="#FFFFFF"/>
+              <rect x="19" y="74" width="7" height="7" fill="#D3122A"/>
+
+              <rect x="42" y="15" width="6" height="6" fill="#121214"/>
+              <rect x="52" y="15" width="6" height="6" fill="#121214"/>
+              <rect x="42" y="25" width="6" height="6" fill="#121214"/>
+              <rect x="42" y="42" width="16" height="16" fill="#D3122A" rx="2"/>
+              <rect x="65" y="45" width="8" height="8" fill="#121214"/>
+              <rect x="20" y="45" width="8" height="8" fill="#121214"/>
+              <rect x="42" y="65" width="6" height="6" fill="#121214"/>
+              <rect x="52" y="75" width="10" height="10" fill="#121214"/>
+              <rect x="75" y="65" width="12" height="12" fill="#121214"/>
+            </svg>
+          </div>
+
+          <p style="font-size: 0.8rem; color: #9CA3AF; max-width: 360px; margin: 0 auto; line-height: 1.45;">
+            Formulario público responsivo conectado a la API REST de Django con persistencia directa en base de datos local SQLite.
+          </p>
+        </div>
+
+        <!-- Comprobante de éxito -->
+        <div id="voucher-card" class="card" style="display: none; margin-top: 1.5rem; border-left: 4px solid var(--inacap-rojo);">
+          <div style="text-align: center;">
+            <h3 style="color: var(--inacap-negro); font-size: 1.25rem; font-weight: 800;">Pre-inscripción Registrada</h3>
+            <p style="font-size: 0.85rem; color: var(--gris-medio); margin-top: 0.35rem;">
+              Presente su RUT en el <strong>Mesón de Recepción</strong> el día del evento para validar y entregar su dispositivo.
+            </p>
+            
+            <div style="background: #F9FAFB; border: 1px dashed var(--border-card); border-radius: var(--radius-sm); padding: 1.15rem; margin: 1.15rem auto; max-width: 340px;">
+              <div style="font-size: 0.74rem; color: var(--gris-medio); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;">Identificador de Taller:</div>
+              <div id="voucher-code" class="kanban-code" style="font-size: 1.35rem; margin: 0.4rem 0; display: inline-block;">CLI-PC-2026-XXXX</div>
+              <div id="voucher-detail" style="font-size: 0.88rem; color: var(--text-main); font-weight: 600;">-</div>
+            </div>
+
+            <div style="display: flex; gap: 0.65rem; justify-content: center; flex-wrap: wrap;">
+              <button class="btn btn-outline btn-sm" onclick="resetFormularioParaOtroEquipo()">+ Inscribir Otro Computador</button>
+              <a href="/login/" class="btn btn-secondary btn-sm">Acceso Mesón ➔</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Términos y Condiciones -->
+  <div class="modal-overlay" id="modal-terminos">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Términos de Servicio y Consentimiento de Datos</h3>
+        <button class="modal-close" onclick="AppUtils.closeModal('modal-terminos')">&times;</button>
+      </div>
+      <div style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
+        <h4 style="font-size: 0.95rem; color: var(--inacap-negro); margin-bottom: 0.4rem;">1. Marco Institucional</h4>
+        <p style="margin-bottom: 0.85rem;">La Clínica del PC es una actividad académica comunitaria organizada por la asignatura Fundamentos de Hardware y Software de INACAP Sede San Pedro de la Paz.</p>
+
+        <h4 style="font-size: 0.95rem; color: var(--inacap-negro); margin-bottom: 0.4rem;">2. Protección de Datos (Ley N° 19.628)</h4>
+        <p style="margin-bottom: 0.85rem;">Sus datos de contacto se utilizarán exclusivamente para coordinar la atención técnica del equipo y no serán transferidos a terceros.</p>
+
+        <h4 style="font-size: 0.95rem; color: var(--inacap-negro); margin-bottom: 0.4rem;">3. Deslinde de Responsabilidad</h4>
+        <p style="margin-bottom: 0.85rem;">En servicios de Formateo, el usuario es el único responsable del respaldo previo de su información personal. No se asume responsabilidad por componentes que ingresen con fallas preexistentes de encendido.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="AppUtils.closeModal('modal-terminos')">Entendido y Conforme</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer-placeholder"></div>
+
+  <script src="/static/js/api_cliente.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script>
+    document.getElementById('nav-placeholder').innerHTML = AppUtils.renderHeader('pre');
+    document.getElementById('footer-placeholder').innerHTML = AppUtils.renderFooter();
+
+    async function formatearYBuscarRut(input) {
+      const formateado = AppUtils.formatRut(input.value);
+      input.value = formateado;
+      const esValido = AppUtils.validateRut(formateado);
+      const feedback = document.getElementById('rut-feedback');
+      
+      if (!esValido && input.value.trim().length > 0) {
+        input.style.borderColor = 'var(--inacap-rojo)';
+        feedback.textContent = 'RUT inválido. Verifique el número y dígito verificador.';
+        feedback.style.color = 'var(--inacap-rojo)';
+      } else if (esValido) {
+        input.style.borderColor = 'var(--inacap-negro)';
+        feedback.textContent = 'RUT válido.';
+        feedback.style.color = 'var(--inacap-negro)';
+
+        const propietarioExistente = await ClinicaAPI.buscarPropietarioPorRut(formateado);
+        if (propietarioExistente) {
+          document.getElementById('nombre').value = propietarioExistente.nombre || '';
+          document.getElementById('telefono').value = propietarioExistente.telefono || '';
+          document.getElementById('email').value = propietarioExistente.email || '';
+          document.getElementById('comuna').value = propietarioExistente.comuna || 'San Pedro de la Paz';
+          AppUtils.showToast('Datos recuperados para este titular.', 'info');
+        }
+      }
+    }
+
+    async function enviarPreinscripcion(event) {
+      event.preventDefault();
+      const rutInput = document.getElementById('rut');
+      const rut = AppUtils.formatRut(rutInput.value);
+
+      if (!AppUtils.validateRut(rut)) {
+        AppUtils.showToast('Ingrese un RUT válido antes de continuar.', 'danger');
+        rutInput.focus();
+        return;
+      }
+
+      const boton = document.getElementById('btn-enviar-pre');
+      boton.disabled = true;
+      boton.textContent = 'Guardando en la base de datos...';
+
+      const payload = {
+        rut: rut,
+        nombre: document.getElementById('nombre').value.trim(),
+        telefono: document.getElementById('telefono').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        comuna: document.getElementById('comuna').value,
+        consentimiento: document.getElementById('consentimiento').checked,
+        tipo: document.getElementById('tipo').value,
+        marca: document.getElementById('marca').value.trim(),
+        modelo: document.getElementById('modelo').value.trim() || 'No especificado',
+        tipoServicio: document.getElementById('servicio').value,
+        accesorios: document.getElementById('accesorios').value.trim() || 'Sin accesorios',
+        fallaReportada: document.getElementById('falla').value.trim(),
+        estado: 'Preinscrito'
+      };
+
+      try {
+        const nuevaOrden = await ClinicaAPI.crearOrden(payload);
+
+        document.getElementById('voucher-code').textContent = nuevaOrden.etiquetaTaller;
+        document.getElementById('voucher-detail').textContent = `${nuevaOrden.dispositivo.tipo} ${nuevaOrden.dispositivo.marca} — ${nuevaOrden.propietario.nombre}`;
+        document.getElementById('voucher-card').style.display = 'block';
+        document.getElementById('voucher-card').scrollIntoView({ behavior: 'smooth' });
+
+        AppUtils.showToast(`Pre-inscripción guardada: ${nuevaOrden.etiquetaTaller}`, 'success');
+      } catch (error) {
+        AppUtils.showToast(error.message || 'Error al registrar', 'danger');
+      } finally {
+        boton.disabled = false;
+        boton.textContent = 'Confirmar Pre-inscripción ➔';
+      }
+    }
+
+    function resetFormularioParaOtroEquipo() {
+      document.getElementById('tipo').value = 'Notebook';
+      document.getElementById('marca').value = '';
+      document.getElementById('modelo').value = '';
+      document.getElementById('accesorios').value = '';
+      document.getElementById('falla').value = '';
+      document.getElementById('voucher-card').style.display = 'none';
+      AppUtils.showToast('Listo para ingresar otro equipo bajo el mismo RUT.', 'info');
+    }
+  </script>
+</body>
+</html>

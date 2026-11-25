@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Control — Clínica del PC INACAP</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+</head>
+<body>
+
+  <div id="nav-placeholder"></div>
+
+  <main class="main-content">
+    <!-- Encabezado con información del sistema -->
+    <div class="page-header">
+      <div>
+        <div class="step-indicator">Sistema de Gestión Institucional • 9 Pasos Operativos</div>
+        <h1 class="page-title">
+          Panel de Control y Trazabilidad
+        </h1>
+        <p class="page-subtitle">
+          Plataforma centralizada con base de datos relacional SQLite y arquitectura REST para la jornada técnica comunitaria en INACAP San Pedro de la Paz.
+        </p>
+      </div>
+      <div style="display: flex; gap: 0.65rem; align-items: center;">
+        <button class="btn btn-outline btn-sm" onclick="restaurarDatosSemilla()">
+          Restaurar Datos de Demostración
+        </button>
+      </div>
+    </div>
+
+    <!-- Banner informativo del perfil conectado -->
+    <div id="banner-perfil" style="background: #FFFFFF; border: 1px solid var(--border-card); border-left: 4px solid var(--inacap-rojo); border-radius: var(--radius-sm); padding: 0.85rem 1.25rem; margin-bottom: 1.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; box-shadow: var(--shadow-subtle);">
+      <div style="font-size: 0.88rem; color: var(--text-main);">
+        <span>Sesión activa: <strong id="perfil-nombre">-</strong></span>
+        <span class="badge" id="perfil-rol-badge" style="margin-left: 0.4rem; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.04em;">-</span>
+      </div>
+      <div style="font-size: 0.82rem; color: var(--gris-medio);" id="perfil-alcance">
+        <!-- Detalle dinámico -->
+      </div>
+    </div>
+
+    <!-- Indicadores Principales en Tiempo Real desde SQLite -->
+    <div class="grid-4" id="stats-container">
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="stat-pre">0</div>
+          <div class="stat-label">Pre-inscritos (QR)</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="stat-tal">0</div>
+          <div class="stat-label">En Taller Técnico</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="stat-lis">0</div>
+          <div class="stat-label">Listos para Entrega</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="stat-ent">0</div>
+          <div class="stat-label">Entregados Conformes</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Módulos de Operación Filtrados por Perfil -->
+    <div class="card" style="margin-top: 2rem;">
+      <div class="card-header">
+        <h2 class="card-title">Módulos de Operación del Flujo</h2>
+        <span style="font-size: 0.8rem; color: var(--gris-medio); font-weight: 600;">Control de Acceso por Roles (RBAC)</span>
+      </div>
+      
+      <div class="grid-3" id="modulos-grid">
+        <!-- 1. Propietario (Público) -->
+        <div class="card-modulo" id="mod-pre">
+          <div>
+            <span class="modulo-paso-badge">Paso 01 • Móvil</span>
+            <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.4rem;">Pre-inscripción QR</h3>
+            <p style="font-size: 0.84rem; color: var(--gris-medio); margin-bottom: 1.25rem; line-height: 1.45;">Portal abierto para escanear con el código QR. Captura de RUT, catálogo y consentimiento informado (Ley 19.628).</p>
+          </div>
+          <a href="/preinscripcion/" class="btn btn-outline btn-sm btn-block">Abrir Pre-inscripción ➔</a>
+        </div>
+
+        <!-- 2. Mesón de Recepción -->
+        <div class="card-modulo" id="mod-rec">
+          <div>
+            <span class="modulo-paso-badge">Pasos 02-03 • Mesón</span>
+            <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.4rem;">Mesón de Recepción</h3>
+            <p style="font-size: 0.84rem; color: var(--gris-medio); margin-bottom: 1.25rem; line-height: 1.45;">Búsqueda por RUT, regla 'un PC, una ficha', comprobación obligatoria de encendido inicial y emisión de ticket.</p>
+          </div>
+          <div id="btn-container-rec">
+            <a href="/recepcion/" class="btn btn-secondary btn-sm btn-block">Abrir Consola Mesón ➔</a>
+          </div>
+        </div>
+
+        <!-- 3. Taller Técnico -->
+        <div class="card-modulo" id="mod-tal">
+          <div>
+            <span class="modulo-paso-badge">Pasos 04-05 • Taller</span>
+            <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.4rem;">Taller Técnico</h3>
+            <p style="font-size: 0.84rem; color: var(--gris-medio); margin-bottom: 1.25rem; line-height: 1.45;">Tablero Kanban con checklists de control (Física, Lógica, Formateo), bitácora y pausa/traspaso de turno.</p>
+          </div>
+          <div id="btn-container-tal">
+            <a href="/taller/" class="btn btn-primary btn-sm btn-block">Abrir Mesa de Taller ➔</a>
+          </div>
+        </div>
+
+        <!-- 4. V°B° Calidad -->
+        <div class="card-modulo" id="mod-qc" style="margin-top: 1rem;">
+          <div>
+            <span class="modulo-paso-badge">Paso 06 • Docente</span>
+            <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.4rem;">Control de Calidad</h3>
+            <p style="font-size: 0.84rem; color: var(--gris-medio); margin-bottom: 1.25rem; line-height: 1.45;">Supervisión docente y certificación en banco de prueba. Visto bueno formal que habilita el traspaso a retiro.</p>
+          </div>
+          <div id="btn-container-qc">
+            <a href="/control-calidad/" class="btn btn-outline btn-sm btn-block">Abrir Control de Calidad ➔</a>
+          </div>
+        </div>
+
+        <!-- 5. Retiro y Cierre -->
+        <div class="card-modulo" id="mod-ent" style="margin-top: 1rem;">
+          <div>
+            <span class="modulo-paso-badge">Pasos 07-09 • Entrega</span>
+            <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.4rem;">Retiro y Cierre</h3>
+            <p style="font-size: 0.84rem; color: var(--gris-medio); margin-bottom: 1.25rem; line-height: 1.45;">Llamada telefónica, prueba presencial con el titular, validación de terceros y encuesta de satisfacción.</p>
+          </div>
+          <div id="btn-container-ent">
+            <a href="/entrega/" class="btn btn-secondary btn-sm btn-block">Abrir Retiro y Cierre ➔</a>
+          </div>
+        </div>
+
+        <!-- 6. Métricas -->
+        <div class="card-modulo" id="mod-met" style="margin-top: 1rem;">
+          <div>
+            <span class="modulo-paso-badge">Supervisión • Reportería</span>
+            <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.4rem;">Reportes y Métricas</h3>
+            <p style="font-size: 0.84rem; color: var(--gris-medio); margin-bottom: 1.25rem; line-height: 1.45;">Consola de gestión: tipos de servicios atendidos, satisfacción promedio de usuarios y exportación de datos.</p>
+          </div>
+          <div id="btn-container-met">
+            <a href="/metricas/" class="btn btn-outline btn-sm btn-block">Ver Estadísticas ➔</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monitor de Órdenes en Tiempo Real -->
+    <div class="card" style="margin-top: 2rem;">
+      <div class="card-header">
+        <h2 class="card-title">Monitor de Órdenes en Tiempo Real</h2>
+        <span style="font-size: 0.8rem; color: var(--gris-medio); font-weight: 500;">Persistencia directa en SQLite vía /api/ordenes/</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Identificador</th>
+              <th>Dispositivo</th>
+              <th>Titular</th>
+              <th>Servicio</th>
+              <th>Técnico Asignado</th>
+              <th>Estado Operativo</th>
+              <th style="text-align: right;">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="ordenes-tbody">
+            <tr>
+              <td colspan="7" style="text-align:center; padding: 2rem; color: var(--gris-medio);">Cargando órdenes desde la base de datos...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div id="footer-placeholder"></div>
+
+  <!-- Scripts del sistema -->
+  <script src="/static/js/api_cliente.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script>
+    document.getElementById('nav-placeholder').innerHTML = AppUtils.renderHeader('dashboard');
+    document.getElementById('footer-placeholder').innerHTML = AppUtils.renderFooter();
+
+    function aplicarPermisosVisualesEnDashboard(usuario) {
+      if (!usuario) return;
+      const rol = usuario.rol;
+
+      document.getElementById('perfil-nombre').textContent = usuario.nombre_completo || usuario.nombre_usuario;
+      document.getElementById('perfil-rol-badge').textContent = rol;
+
+      const descripcionesAlcance = {
+        'admin': 'Acceso Total: Puedes operar y supervisar todos los módulos del sistema.',
+        'docente': 'Acceso Docente: Autorizado para Control de Calidad (V°B°), Métricas y Supervisión de Taller.',
+        'recepcion': 'Acceso Mesón: Autorizado para Admisión (Pasos 2-3) y Entrega Conforme (Pasos 7-9).',
+        'tecnico': 'Acceso Técnico: Autorizado para Mesa de Taller, Checklists y Bitácora (Pasos 4-5).'
+      };
+      document.getElementById('perfil-alcance').textContent = descripcionesAlcance[rol] || '';
+
+      if (rol !== 'admin') {
+        if (rol === 'recepcion') {
+          bloquearModulo('mod-tal', 'btn-container-tal', 'Requiere Rol Técnico / Docente');
+          bloquearModulo('mod-qc', 'btn-container-qc', 'Requiere Rol Docente');
+          bloquearModulo('mod-met', 'btn-container-met', 'Requiere Rol Docente');
+        } else if (rol === 'docente') {
+          bloquearModulo('mod-rec', 'btn-container-rec', 'Exclusivo Mesón de Recepción');
+          bloquearModulo('mod-ent', 'btn-container-ent', 'Exclusivo Mesón de Recepción');
+        }
+      }
+    }
+
+    function bloquearModulo(cardId, btnContainerId, textoMotivo) {
+      const card = document.getElementById(cardId);
+      const container = document.getElementById(btnContainerId);
+      if (card) card.classList.add('bloqueado');
+      if (container) {
+        container.innerHTML = `<button class="btn btn-sm btn-block" disabled style="background:#EEEEF1; color:#9CA3AF; border-color:#E5E7EB; cursor:not-allowed;">${textoMotivo}</button>`;
+      }
+    }
+
+    async function renderDashboard() {
+      try {
+        const usuarioSesion = AppUtils.getUsuarioEnSesion();
+        if (usuarioSesion) {
+          aplicarPermisosVisualesEnDashboard(usuarioSesion);
+        } else {
+          const res = await ClinicaAPI.getUsuarioActual();
+          if (res.autenticado) {
+            AppUtils.guardarUsuarioEnSesion(res.usuario);
+            aplicarPermisosVisualesEnDashboard(res.usuario);
+          }
+        }
+
+        const metricas = await ClinicaAPI.getMetricas();
+        document.getElementById('stat-pre').textContent = metricas.preinscrito || 0;
+        document.getElementById('stat-tal').textContent = metricas.enTaller || 0;
+        document.getElementById('stat-lis').textContent = metricas.listo || 0;
+        document.getElementById('stat-ent').textContent = metricas.entregado || 0;
+
+        const ordenes = await ClinicaAPI.getOrdenes();
+        const tbody = document.getElementById('ordenes-tbody');
+        tbody.innerHTML = '';
+
+        if (!ordenes || ordenes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--gris-medio); padding:2rem 0;">No hay órdenes registradas en la base de datos.</td></tr>';
+          return;
+        }
+
+        const usuario = AppUtils.getUsuarioEnSesion();
+        const rol = usuario ? usuario.rol : 'publico';
+
+        ordenes.forEach(o => {
+          const tr = document.createElement('tr');
+          const urlGestionar = getRedirectUrlPorRol(o.estado, rol);
+
+          tr.innerHTML = `
+            <td><span class="kanban-code">${o.etiquetaTaller || ('#' + o.idOrden)}</span></td>
+            <td><strong>${o.dispositivo.tipo || 'Equipo'}</strong> ${o.dispositivo.marca || ''} <span style="color:var(--gris-medio);">${o.dispositivo.modelo || ''}</span></td>
+            <td>${o.propietario.nombre || 'Sin registrar'}<br><small style="color:var(--gris-medio);">${o.propietario.telefono || ''}</small></td>
+            <td><span style="font-weight:700;">${o.tipoServicio}</span></td>
+            <td>${o.tecnicoAsignado || '<em style="color:var(--gris-medio);">Por asignar</em>'}</td>
+            <td>${AppUtils.getStatusBadge(o.estado)}</td>
+            <td style="text-align: right;">
+              <a href="${urlGestionar}" class="btn btn-outline btn-sm">Abrir ➔</a>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (error) {
+        console.error('Error al cargar dashboard:', error);
+      }
+    }
+
+    function getRedirectUrlPorRol(estado, rol) {
+      if (rol === 'admin') {
+        if (estado === 'Preinscrito') return '/recepcion/';
+        if (['Recepcionado', 'En Taller', 'Pausado'].includes(estado)) return '/taller/';
+        if (estado === 'Listo para Entrega') return '/control-calidad/';
+        return '/entrega/';
+      } else if (rol === 'docente') {
+        if (estado === 'Listo para Entrega' || estado === 'En Taller') return '/control-calidad/';
+        return '/taller/';
+      } else if (rol === 'recepcion') {
+        if (estado === 'Listo para Entrega' || estado === 'Entregado Conforme') return '/entrega/';
+        return '/recepcion/';
+      }
+      return '/taller/';
+    }
+
+    async function restaurarDatosSemilla() {
+      if (confirm('¿Deseas restaurar la base de datos local con los datos de prueba iniciales?')) {
+        try {
+          await ClinicaAPI.resetDB();
+          AppUtils.showToast('Base de datos restaurada con éxito.', 'success');
+          renderDashboard();
+        } catch (e) {
+          AppUtils.showToast('Error al restaurar datos', 'danger');
+        }
+      }
+    }
+
+    renderDashboard();
+  </script>
+</body>
+</html>
