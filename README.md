@@ -15,7 +15,7 @@ El sistema implementa una **matriz de permisos estricta** según el documento de
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Pre-inscripción** (`/preinscripcion/`) | Paso 1 (QR) | ✅ | 🔄 *(Va a Panel)* | 🔄 *(Va a Mesón)* | ❌ *(Redirige a Taller)* | ✅ *(Sin Login)* |
 | **Mesón de Recepción** (`/recepcion/`) | Pasos 2 y 3 | ✅ | ❌ | ✅ | ❌ | ❌ |
-| **Mesa de Taller** (`/taller/`) | Pasos 4 y 5 | ✅ | ✅ *(Supervisión)* | ❌ | ✅ | ❌ |
+| **Mesa de Taller** (`/taller/`) | Pasos 3 a 5 | ✅ | ❌ | ❌ | ✅ | ❌ |
 | **Control de Calidad** (`/control-calidad/`) | Paso 6 (V°B°) | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **Retiro y Entrega** (`/entrega/`) | Pasos 7, 8 y 9 | ✅ | ❌ | ✅ | ❌ | ❌ |
 | **Métricas y Reportes** (`/metricas/`) | Transversal | ✅ | ✅ | ❌ | ❌ | ❌ |
@@ -23,7 +23,7 @@ El sistema implementa una **matriz de permisos estricta** según el documento de
 
 ### ¿Cómo funciona la seguridad?
 1. **Autenticación Local Propia:** No depende de `django.contrib.admin` ni de `auth.User`. Se utiliza la tabla propia `Usuario` en SQLite y el almacenamiento directo en `request.session`.
-2. **Decoradores en Backend:** Las vistas en `portal/views.py` utilizan el decorador `@roles_permitidos([...])` definido en `autenticacion/decoradores.py`. Si un usuario intenta forzar la URL a una sección no autorizada, el sistema responde con una pantalla amigable de **Acceso Denegado (HTTP 403)** en `templates/acceso_denegado.html`.
+2. **Decoradores en Backend:** Las vistas en `portal/views.py` utilizan el decorador `@roles_permitidos([...])` definido en `autenticacion/decoradores.py`. Si un usuario intenta forzar la URL a una sección no autorizada, el sistema lo **devuelve automáticamente a su área de trabajo** con un aviso breve (ya no se muestra una pantalla de módulo restringido).
 3. **Seguridad en la API REST:** Los endpoints críticos (`/api/ordenes/<id>/visto-bueno/`, `/api/ordenes/<id>/entrega/`) verifican el rol del usuario autenticado en la sesión y retornan código `403 Forbidden` si no tiene los privilegios requeridos.
 4. **Barra de Navegación Dinámica:** `AppUtils.renderHeader()` en `static/js/app.js` solo muestra los botones y enlaces correspondientes al rol de la sesión activa, junto al nombre del usuario y su insignia de rol.
 5. **Redirección Inteligente tras el Login:** Al iniciar sesión, el usuario es dirigido directamente a su lugar de trabajo:
@@ -123,3 +123,28 @@ Salida esperada:
 ```text
 Ran 5 tests in 10.3s - OK
 ```
+
+---
+
+## 🗂️ 6. Administración y Carga Masiva por CSV (solo `admin`)
+
+Ruta: `/administracion/` (menú **Administración**).
+
+- **Usuarios:** sube un CSV con `nombre_usuario;nombre_completo;correo;rol;telefono;contrasena`. Roles permitidos: `docente` y `tecnico`. Los usuarios que ya existen se omiten; si no hay contraseña se genera una clave inicial y se puede descargar un CSV con las claves.
+- **Checklists:** sube un CSV con `tipo_servicio;codigo;descripcion`. La lista de cada servicio incluido **reemplaza** a la anterior y se aplica a las **órdenes nuevas** (las existentes no cambian). Sin plantilla cargada se usa el catálogo por defecto.
+- Ambas cargas muestran una **vista previa** antes de guardar. Cada pantalla ofrece una plantilla CSV descargable (la de checklists trae la lista vigente).
+
+Instalación rápida: `pip install -r requirements.txt`, luego `python manage.py migrate` y `python manage.py poblar_datos`.
+
+## 🔧 7. Perfil Técnico, Recepción y Taller (reglas vigentes)
+
+- **Recepción** registra accesorios e inspección visual. **No** verifica el encendido ni pide número de serie: eso lo hace el técnico.
+- **Una orden se recepciona una sola vez.** Después, la ficha del mesón queda en solo lectura.
+- **Técnico:** ve solo los equipos *recepcionados en espera* y los que él mismo atiende ("Mis equipos atendidos"). No ve los de otros técnicos. Al tomar un equipo queda asignado a su nombre.
+- En taller el técnico verifica **si el equipo enciende**, registra el **número de serie** y completa el checklist. Si un punto **falla**, debe escribir **por qué falló**.
+- La **bitácora** es un resumen automático (equipo, técnico, serie, encendido, checklist, fallas con su motivo y eventos de pausa/envío a V°B°), no notas manuales.
+- Al enviar a V°B° docente, el técnico permanece en su mesa de taller.
+
+## 🎓 8. Perfil Docente
+
+El docente solo ve **Panel**, **V°B° Calidad**, **Estudiantes** y **Métricas**. En **Estudiantes** (`/estudiantes/`) revisa los equipos que atendió cada estudiante técnico, con su estado, fallas y bitácora. No accede a Pre-inscripción, Mesón de Recepción, Taller ni Retiro y Cierre (este último es del mesón de recepción: llamada al titular, prueba de entrega y encuesta). Su panel muestra únicamente los módulos que le corresponden.

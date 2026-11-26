@@ -6,6 +6,14 @@
   <title>Taller Técnico — Clínica del PC INACAP</title>
   <link rel="stylesheet" href="/static/css/main.css">
   <link rel="stylesheet" href="/static/css/components.css">
+  <style>
+    .checklist-item { align-items: flex-start; gap: 0.75rem; }
+    .motivo-falla { display: block; margin-top: 0.25rem; font-size: 0.78rem; color: var(--inacap-rojo); font-weight: 600; }
+    .bloque-taller { background: #FFFFFF; border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 0.85rem; }
+    .opciones-encendido { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .opciones-encendido label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: 600; font-size: 0.88rem; }
+    .btn-chk:disabled { opacity: 0.55; cursor: not-allowed; }
+  </style>
 </head>
 <body>
 
@@ -14,9 +22,9 @@
   <main class="main-content">
     <div class="page-header">
       <div>
-        <div class="step-indicator">Pasos 04 y 05 • Laboratorio Técnico</div>
-        <h1 class="page-title">Mesa de Trabajo y Checklists de Taller</h1>
-        <p class="page-subtitle">Tablero Kanban para estudiantes técnicos conectado en tiempo real a SQLite mediante la API REST.</p>
+        <div class="step-indicator">Pasos 03 a 05 • Laboratorio Técnico</div>
+        <h1 class="page-title" id="titulo-pagina">Mesa de Trabajo y Checklists de Taller</h1>
+        <p class="page-subtitle" id="subtitulo-pagina">Toma un equipo en espera, verifica su encendido, completa el checklist y registra el resultado.</p>
       </div>
       <div>
         <span class="badge" style="background:#F4F4F5; color:#18181B; border:1px solid #E4E4E7; padding:0.4rem 0.8rem; font-weight:700;">
@@ -25,44 +33,71 @@
       </div>
     </div>
 
-    <!-- Tablero Kanban de Taller (Sobrio y Elegante) -->
-    <div class="kanban-board">
+    <!-- Buscador y filtros -->
+    <div class="card barra-filtros">
+      <input type="search" id="filtro-texto" class="form-control" style="flex:1; min-width:220px;" placeholder="Buscar por etiqueta, titular o equipo...">
+      <select id="filtro-servicio" class="form-control" style="width:200px;">
+        <option value="">Todos los servicios</option>
+        <option value="Mantención Física">Mantención Física</option>
+        <option value="Mantención Lógica">Mantención Lógica</option>
+        <option value="Formateo">Formateo</option>
+      </select>
+      <select id="filtro-tecnico" class="form-control" style="width:200px;">
+        <option value="">Todos los técnicos</option>
+        <option value="__sin__">Sin asignar</option>
+      </select>
+      <button class="btn btn-outline btn-sm" id="filtro-limpiar">Limpiar</button>
+      <span id="filtro-resumen" style="font-size:0.8rem; color:var(--gris-medio); font-weight:600;"></span>
+    </div>
+
+    <!-- Tablero Kanban de Taller -->
+    <div class="kanban-board" id="tablero">
       <!-- Columna 1: En Espera de Asignación -->
       <div class="kanban-col" style="border-top: 3px solid var(--inacap-negro);">
         <div class="kanban-col-header" style="border-bottom-color: var(--inacap-negro);">
           <div class="kanban-col-title">Recepcionados (En Espera)</div>
           <span class="kanban-counter" id="cnt-rec">0</span>
         </div>
-        <div class="kanban-cards" id="cards-recepcionado">
-          <!-- Tarjetas dinámicas -->
-        </div>
+        <div class="kanban-cards" id="cards-recepcionado"></div>
       </div>
 
-      <!-- Columna 2: En Proceso Técnico -->
-      <div class="kanban-col" style="border-top: 3px solid var(--inacap-rojo);">
+      <!-- Columna 2: En Proceso Técnico (solo supervisión) -->
+      <div class="kanban-col" id="col-taller" style="border-top: 3px solid var(--inacap-rojo);">
         <div class="kanban-col-header" style="border-bottom-color: var(--inacap-rojo);">
           <div class="kanban-col-title" style="color: var(--inacap-rojo);">En Mantención / Taller</div>
           <span class="kanban-counter" id="cnt-tal" style="background: var(--inacap-rojo);">0</span>
         </div>
-        <div class="kanban-cards" id="cards-taller">
-          <!-- Tarjetas dinámicas -->
-        </div>
+        <div class="kanban-cards" id="cards-taller"></div>
       </div>
 
-      <!-- Columna 3: Pausado / Traspaso de Turno -->
-      <div class="kanban-col" style="border-top: 3px solid #6B7280;">
+      <!-- Columna 3: Pausado / Traspaso de Turno (solo supervisión) -->
+      <div class="kanban-col" id="col-pausado" style="border-top: 3px solid #6B7280;">
         <div class="kanban-col-header" style="border-bottom-color: #6B7280;">
           <div class="kanban-col-title">Pausado / Cambio de Turno</div>
           <span class="kanban-counter" id="cnt-pau" style="background: #6B7280;">0</span>
         </div>
-        <div class="kanban-cards" id="cards-pausado">
-          <!-- Tarjetas dinámicas -->
-        </div>
+        <div class="kanban-cards" id="cards-pausado"></div>
+      </div>
+    </div>
+
+    <!-- Mis equipos atendidos (solo técnico) -->
+    <div class="card" id="mis-equipos" style="display:none; margin-top:1.5rem;">
+      <div class="card-header">
+        <h2 class="card-title">Mis equipos atendidos</h2>
+        <span class="badge" id="cnt-mis">0</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr><th>Etiqueta</th><th>Equipo</th><th>Servicios</th><th>Estado</th><th>Ingreso</th><th style="text-align:right;">Acción</th></tr>
+          </thead>
+          <tbody id="mis-equipos-tbody"></tbody>
+        </table>
       </div>
     </div>
   </main>
 
-  <!-- Modal / Mesa de Trabajo Técnica (Paso 4 y 5) -->
+  <!-- Modal / Mesa de Trabajo Técnica -->
   <div class="modal-overlay" id="modal-taller">
     <div class="modal-content" style="max-width: 800px;">
       <div class="modal-header">
@@ -74,11 +109,15 @@
         <button class="modal-close" onclick="AppUtils.closeModal('modal-taller')">&times;</button>
       </div>
 
-      <!-- Resumen de Recepción y Estado Previo -->
+      <div id="m-progreso"></div>
+      <div id="m-solo-lectura" style="display:none; background:#F4F5F7; border:1px solid var(--border-card); border-radius:var(--radius-sm); padding:0.6rem 0.85rem; margin-bottom:1rem; font-size:0.82rem; color:var(--gris-medio); font-weight:600;">
+        Este equipo ya salió del taller: la ficha está en modo lectura.
+      </div>
+
+      <!-- Resumen de Recepción -->
       <div style="background-color: #F9FAFB; border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem;">
-        <div class="grid-3" style="font-size: 0.85rem;">
-          <div><strong>Servicio Solicitado:</strong> <span id="m-servicio" style="color:var(--inacap-rojo); font-weight:700;">-</span></div>
-          <div><strong>Encendido Inicial:</strong> <span id="m-enciende">-</span></div>
+        <div class="grid-2" style="font-size: 0.85rem;">
+          <div><strong>Servicios Solicitados:</strong> <span id="m-servicio" style="color:var(--inacap-rojo); font-weight:700;">-</span></div>
           <div><strong>Accesorios:</strong> <span id="m-accesorios">-</span></div>
         </div>
         <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
@@ -86,50 +125,59 @@
         </div>
       </div>
 
-      <!-- Asignación de Alumno Técnico -->
-      <div class="form-group" style="background:#FFFFFF; border:1px solid var(--border-card); border-radius:var(--radius-sm); padding:0.85rem;">
+      <!-- Técnico responsable -->
+      <div class="form-group bloque-taller">
         <label class="form-label required">Estudiante Técnico Responsable:</label>
         <div style="display: flex; gap: 0.5rem;">
           <input type="text" id="m-tecnico-input" class="form-control" placeholder="Nombre del Alumno (ej: Matías Garrido)">
-          <button class="btn btn-secondary btn-sm" onclick="guardarTecnico()">Asignarme</button>
+          <button class="btn btn-secondary btn-sm js-edicion" id="btn-asignar" onclick="guardarTecnico()">Asignarme</button>
         </div>
+      </div>
+
+      <!-- Verificación de encendido (la hace el técnico) -->
+      <div class="form-group bloque-taller">
+        <label class="form-label required">¿El equipo enciende?</label>
+        <div class="opciones-encendido">
+          <label><input type="radio" name="encendido" value="true" onchange="guardarEncendido(true)"> Sí, enciende normalmente</label>
+          <label style="color:var(--inacap-rojo);"><input type="radio" name="encendido" value="false" onchange="guardarEncendido(false)"> No enciende / Falla de energía</label>
+        </div>
+        <div class="form-help" id="encendido-estado">Aún sin verificar.</div>
+        <div id="no-enciende-warning" style="display: none; background-color: #FFF5F5; border: 1px solid var(--inacap-rojo-borde); border-radius: 4px; padding: 0.65rem 0.85rem; font-size: 0.8rem; color: var(--inacap-rojo); margin-top: 0.5rem;">
+          <strong>Cláusula de Protección:</strong> El equipo ingresó sin encender. Informar al titular que el taller no se hace responsable por fallas mayores en placa madre.
+        </div>
+      </div>
+
+      <!-- Número de serie: lo registra el técnico al revisar el equipo -->
+      <div class="form-group bloque-taller">
+        <label class="form-label required">Número de Serie (Chasis o BIOS):</label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="m-serie-input" class="form-control" placeholder="Ej: 5CD1234XYZ" maxlength="100"
+                 onkeyup="if(event.key==='Enter') guardarSerie()">
+          <button class="btn btn-secondary btn-sm js-edicion" onclick="guardarSerie()">Guardar serie</button>
+        </div>
+        <div class="form-help">Si está borrado por desgaste, revisar en BIOS/UEFI.</div>
       </div>
 
       <!-- Paso 4: Checklists Interactivos -->
       <div style="margin-bottom: 1.5rem;">
-        <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap:0.5rem; flex-wrap:wrap;">
           <span>Paso 04 • Protocolo de Control (<span id="m-chk-tipo">Física</span>)</span>
-          <span style="font-size: 0.75rem; color: var(--gris-medio); font-weight: 500;">Sincronizado con SQLite</span>
+          <span style="font-size: 0.75rem; color: var(--gris-medio); font-weight: 500;">Si un punto falla, debes explicar por qué</span>
         </h4>
-
-        <div id="m-checklist-container">
-          <!-- Items generados dinámicamente -->
-        </div>
+        <div id="m-checklist-container"></div>
       </div>
 
-      <!-- Paso 5: Bitácora de Observaciones y Traspaso de Turno -->
+      <!-- Paso 5: Bitácora (resumen automático) -->
       <div style="background-color: #F9FAFB; border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem;">
-        <h4 style="font-size: 0.9rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.5rem;">
-          Paso 05 • Registro de Anomalías Técnicas / Bitácora
+        <h4 style="font-size: 0.9rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.2rem;">
+          Paso 05 • Bitácora de la Intervención
         </h4>
-
-        <div id="m-observaciones-list" style="max-height: 140px; overflow-y: auto; margin-bottom: 0.75rem;">
-          <!-- Notas previas -->
-        </div>
-
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <select id="obs-criticidad" class="form-control" style="width: 120px;">
-            <option value="Baja">Baja</option>
-            <option value="Media">Media</option>
-            <option value="Alta">Alta</option>
-          </select>
-          <input type="text" id="obs-texto" class="form-control" style="flex: 1; min-width: 200px;" placeholder="Detalle técnico (ej: pasta térmica cristalizada, conector suelto)...">
-          <button class="btn btn-outline btn-sm" onclick="agregarObservacion()">+ Agregar Nota</button>
-        </div>
+        <p style="font-size: 0.76rem; color: var(--gris-medio); margin-bottom: 0.75rem;">Resumen automático de todo lo que registras en esta ficha.</p>
+        <div id="m-bitacora"></div>
       </div>
 
       <!-- Acciones de Cierre Técnico -->
-      <div class="modal-footer" style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+      <div class="modal-footer" id="m-acciones" style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
         <button class="btn btn-outline btn-sm" onclick="pausarOrdenTraspaso()">
           Pausar / Traspasar Turno
         </button>
@@ -151,7 +199,15 @@
     document.getElementById('nav-placeholder').innerHTML = AppUtils.renderHeader('tal');
     document.getElementById('footer-placeholder').innerHTML = AppUtils.renderFooter();
 
+    const esc = t => AppUtils.escapar(t);
+    const ESTADOS_EDITABLES = ['Recepcionado', 'En Taller', 'Pausado'];
+
+    let usuarioActual = null;
+    let esTecnico = false;
+    let ordenesCache = [];
     let ordenActivaId = null;
+    let ordenActiva = null;
+    let soloLectura = false;
 
     const CATALOGO_LOCAL = {
       'Mantención Física': [
@@ -177,27 +233,107 @@
       ]
     };
 
+    // ------------------------------------------------------------------
+    // Inicio: se identifica al usuario para mostrar solo lo que le corresponde
+    // ------------------------------------------------------------------
+    async function iniciar() {
+      const res = await ClinicaAPI.getUsuarioActual();
+      usuarioActual = res.autenticado ? res.usuario : AppUtils.getUsuarioEnSesion();
+      esTecnico = !!usuarioActual && usuarioActual.rol === 'tecnico';
+      configurarVistaPorRol();
+      renderKanban();
+    }
+
+    function configurarVistaPorRol() {
+      if (!esTecnico) return;
+      // El técnico solo ve los equipos recepcionados en espera; lo que él atiende va en "Mis equipos atendidos"
+      document.getElementById('col-taller').style.display = 'none';
+      document.getElementById('col-pausado').style.display = 'none';
+      document.getElementById('tablero').style.gridTemplateColumns = '1fr';
+      document.getElementById('filtro-tecnico').style.display = 'none';
+      document.getElementById('mis-equipos').style.display = 'block';
+      document.getElementById('titulo-pagina').textContent = 'Mi Mesa de Taller';
+      document.getElementById('subtitulo-pagina').textContent = 'Toma un equipo recepcionado en espera. Los equipos que ya tomaste aparecen abajo, en "Mis equipos atendidos".';
+    }
+
+    // ------------------------------------------------------------------
+    // Tablero y filtros
+    // ------------------------------------------------------------------
     async function renderKanban() {
       try {
-        const ordenes = await ClinicaAPI.getOrdenes();
-
-        const recepcionadas = ordenes.filter(o => o.estado === 'Recepcionado');
-        const enTaller = ordenes.filter(o => o.estado === 'En Taller');
-        const pausadas = ordenes.filter(o => o.estado === 'Pausado');
-
-        document.getElementById('cnt-rec').textContent = recepcionadas.length;
-        document.getElementById('cnt-tal').textContent = enTaller.length;
-        document.getElementById('cnt-pau').textContent = pausadas.length;
-
-        renderColumna('cards-recepcionado', recepcionadas, 'rec');
-        renderColumna('cards-taller', enTaller, 'tal');
-        renderColumna('cards-pausado', pausadas, 'pau');
+        // El servidor ya entrega al técnico solo lo que le corresponde
+        ordenesCache = await ClinicaAPI.getOrdenes();
+        if (!esTecnico) actualizarOpcionesTecnico();
+        aplicarFiltros();
       } catch (error) {
         console.error('Error al cargar Kanban:', error);
       }
     }
 
-    function renderColumna(containerId, lista, tipo) {
+    function actualizarOpcionesTecnico() {
+      const select = document.getElementById('filtro-tecnico');
+      const seleccionado = select.value;
+      const tecnicos = [...new Set(ordenesCache.map(o => o.tecnicoAsignado).filter(Boolean))].sort();
+      select.innerHTML = '<option value="">Todos los técnicos</option><option value="__sin__">Sin asignar</option>';
+      tecnicos.forEach(t => {
+        const op = document.createElement('option');
+        op.value = t;
+        op.textContent = t;
+        select.appendChild(op);
+      });
+      select.value = tecnicos.includes(seleccionado) || seleccionado === '__sin__' ? seleccionado : '';
+    }
+
+    function aplicarFiltros() {
+      const texto = document.getElementById('filtro-texto').value.trim().toLowerCase();
+      const servicio = document.getElementById('filtro-servicio').value;
+      const tecnico = esTecnico ? '' : document.getElementById('filtro-tecnico').value;
+
+      const visibles = ordenesCache.filter(o => {
+        if (servicio && !(o.servicios || [o.tipoServicio]).includes(servicio)) return false;
+        if (tecnico === '__sin__' && o.tecnicoAsignado) return false;
+        if (tecnico && tecnico !== '__sin__' && o.tecnicoAsignado !== tecnico) return false;
+        if (texto) {
+          const pajar = [o.etiquetaTaller, o.propietario.nombre, o.dispositivo.marca, o.dispositivo.modelo,
+                         o.dispositivo.tipo, esTecnico ? '' : o.tecnicoAsignado].join(' ').toLowerCase();
+          if (!pajar.includes(texto)) return false;
+        }
+        return true;
+      });
+
+      const enTablero = o => esTecnico ? o.estado === 'Recepcionado' : ESTADOS_EDITABLES.includes(o.estado);
+      const hayFiltro = texto || servicio || tecnico;
+      document.getElementById('filtro-resumen').textContent =
+        hayFiltro ? `Mostrando ${visibles.filter(enTablero).length} de ${ordenesCache.filter(enTablero).length}` : '';
+
+      pintarKanban(visibles);
+      if (esTecnico) pintarMisEquipos(visibles);
+    }
+
+    ['filtro-texto', 'filtro-servicio', 'filtro-tecnico'].forEach(id =>
+      document.getElementById(id).addEventListener(id === 'filtro-texto' ? 'input' : 'change', aplicarFiltros));
+    document.getElementById('filtro-limpiar').addEventListener('click', () => {
+      document.getElementById('filtro-texto').value = '';
+      document.getElementById('filtro-servicio').value = '';
+      document.getElementById('filtro-tecnico').value = '';
+      aplicarFiltros();
+    });
+
+    function pintarKanban(ordenes) {
+      const recepcionadas = ordenes.filter(o => o.estado === 'Recepcionado');
+      document.getElementById('cnt-rec').textContent = recepcionadas.length;
+      renderColumna('cards-recepcionado', recepcionadas);
+
+      if (esTecnico) return;
+      const enTaller = ordenes.filter(o => o.estado === 'En Taller');
+      const pausadas = ordenes.filter(o => o.estado === 'Pausado');
+      document.getElementById('cnt-tal').textContent = enTaller.length;
+      document.getElementById('cnt-pau').textContent = pausadas.length;
+      renderColumna('cards-taller', enTaller);
+      renderColumna('cards-pausado', pausadas);
+    }
+
+    function renderColumna(containerId, lista) {
       const container = document.getElementById(containerId);
       container.innerHTML = '';
 
@@ -212,142 +348,256 @@
         card.onclick = () => abrirMesaTrabajo(o.idOrden);
 
         const rutPartes = (o.propietario.rut || '').split('-');
-        const rutEnmascarado = rutPartes.length === 2 ? `XX.XXX.XXX-${rutPartes[1]}` : 'XX.XXX.XXX-X';
+        const rutEnmascarado = rutPartes.length === 2 ? `XX.XXX.XXX-${esc(rutPartes[1])}` : 'XX.XXX.XXX-X';
+        const claseBadge = o.estado === 'En Taller' ? 'badge-taller' : o.estado === 'Pausado' ? 'badge-pausado' : 'badge-recepcionado';
+        const lineaTecnico = esTecnico ? '' :
+          `<div>Técnico: ${o.tecnicoAsignado ? esc(o.tecnicoAsignado) : '<em style="color:var(--inacap-rojo);">Sin asignar</em>'}</div>`;
 
         card.innerHTML = `
           <div class="kanban-card-header">
-            <span class="kanban-code">${o.etiquetaTaller}</span>
-            <span class="badge ${o.estado === 'En Taller' ? 'badge-taller' : o.estado === 'Pausado' ? 'badge-pausado' : 'badge-recepcionado'}">${o.tipoServicio}</span>
+            <span class="kanban-code">${esc(o.etiquetaTaller)}</span>
+            <span class="badge ${claseBadge}">${esc(AppUtils.textoServicios(o))}</span>
           </div>
-          <div class="kanban-card-title">${o.dispositivo.tipo} ${o.dispositivo.marca} ${o.dispositivo.modelo}</div>
+          <div class="kanban-card-title">${esc(o.dispositivo.tipo)} ${esc(o.dispositivo.marca)} ${esc(o.dispositivo.modelo)}</div>
           <div class="kanban-card-meta">
-            <div>Titular: <strong>${o.propietario.nombre}</strong> (${rutEnmascarado})</div>
-            <div>Encendido mesón: ${o.encendidoInicial ? 'Conforme' : 'No enciende'}</div>
-            <div>Técnico: ${o.tecnicoAsignado || '<em style="color:var(--inacap-rojo);">Sin asignar</em>'}</div>
+            <div>Titular: <strong>${esc(o.propietario.nombre)}</strong> (${rutEnmascarado})</div>
+            <div>Encendido: ${esc(AppUtils.textoEncendido(o.encendidoInicial))}</div>
+            ${lineaTecnico}
           </div>
           <div style="margin-top:0.75rem; display:flex; justify-content:space-between; align-items:center;">
-            <small style="color:var(--gris-medio); font-size:0.74rem;">${o.fechaIngreso || ''}</small>
-            <span class="btn btn-outline btn-sm" style="padding:0.2rem 0.55rem; font-size:0.74rem;">Abrir Mesa</span>
+            <small style="color:var(--gris-medio); font-size:0.74rem;">${esc(o.fechaIngreso || '')}</small>
+            <span class="btn btn-outline btn-sm" style="padding:0.2rem 0.55rem; font-size:0.74rem;">${esTecnico && o.estado === 'Recepcionado' ? 'Tomar equipo' : 'Abrir Mesa'}</span>
           </div>
         `;
         container.appendChild(card);
       });
     }
 
+    // Equipos que este técnico ya tomó o terminó (en mantención, pausados, enviados o entregados)
+    function pintarMisEquipos(lista) {
+      const prioridad = { 'En Taller': 0, 'Pausado': 1 };
+      const mias = lista.filter(o => o.estado !== 'Recepcionado')
+        .sort((a, b) => (prioridad[a.estado] ?? 2) - (prioridad[b.estado] ?? 2) || b.idOrden - a.idOrden);
+      document.getElementById('cnt-mis').textContent = mias.length;
+      const tbody = document.getElementById('mis-equipos-tbody');
+      tbody.innerHTML = '';
+
+      if (mias.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:1.5rem; color:var(--gris-medio);">Aún no has tomado ningún equipo.</td></tr>';
+        return;
+      }
+
+      mias.forEach(o => {
+        const activo = o.estado === 'En Taller' || o.estado === 'Pausado';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="kanban-code">${esc(o.etiquetaTaller)}</span></td>
+          <td><strong>${esc(o.dispositivo.tipo)} ${esc(o.dispositivo.marca)}</strong> <span style="color:var(--gris-medio);">${esc(o.dispositivo.modelo)}</span></td>
+          <td>${esc(AppUtils.textoServicios(o))}</td>
+          <td>${AppUtils.getStatusBadge(o.estado)}</td>
+          <td>${esc(o.fechaIngreso || '')}</td>
+          <td style="text-align:right;"><button class="btn ${activo ? 'btn-primary' : 'btn-outline'} btn-sm">${activo ? 'Continuar ➔' : 'Ver ficha'}</button></td>
+        `;
+        tr.querySelector('button').addEventListener('click', () => abrirMesaTrabajo(o.idOrden));
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // Mesa de trabajo
+    // ------------------------------------------------------------------
     async function abrirMesaTrabajo(idOrden) {
-      ordenActivaId = idOrden;
       const orden = await ClinicaAPI.getOrdenPorId(idOrden);
       if (!orden) return;
+
+      if (esTecnico && orden.estado === 'Recepcionado') {
+        const tomar = await AppUtils.confirmar(
+          `¿Tomar el equipo ${orden.etiquetaTaller}? Quedará asignado a ${usuarioActual.nombre_completo} y pasará a "En Taller".`,
+          { titulo: 'Tomar equipo', textoOk: 'Tomar equipo' }
+        );
+        if (!tomar) return;
+        await ClinicaAPI.cambiarEstado(idOrden, 'En Taller', usuarioActual.nombre_completo);
+        orden.estado = 'En Taller';
+        orden.tecnicoAsignado = usuarioActual.nombre_completo;
+        renderKanban();
+      } else if (esTecnico && orden.estado === 'Pausado') {
+        const retomar = await AppUtils.confirmar(
+          `El equipo ${orden.etiquetaTaller} está pausado. ¿Retomar el trabajo?`,
+          { titulo: 'Retomar equipo', textoOk: 'Retomar' }
+        );
+        if (!retomar) return;
+        await ClinicaAPI.cambiarEstado(idOrden, 'En Taller', usuarioActual.nombre_completo);
+        orden.estado = 'En Taller';
+        renderKanban();
+      }
+
+      ordenActivaId = idOrden;
+      ordenActiva = orden;
+      pintarModal(orden);
+      AppUtils.openModal('modal-taller');
+    }
+
+    function pintarModal(orden) {
+      soloLectura = !ESTADOS_EDITABLES.includes(orden.estado);
 
       document.getElementById('m-codigo').textContent = orden.etiquetaTaller;
       document.getElementById('m-equipo').textContent = `${orden.dispositivo.tipo} ${orden.dispositivo.marca} ${orden.dispositivo.modelo}`;
       document.getElementById('m-prop').textContent = `Titular: ${orden.propietario.nombre} | Tel: ${orden.propietario.telefono}`;
-      document.getElementById('m-servicio').textContent = orden.tipoServicio;
-      document.getElementById('m-enciende').textContent = orden.encendidoInicial ? 'Sí encendió en mesón' : 'Ingresó sin encender';
+      document.getElementById('m-servicio').textContent = AppUtils.textoServicios(orden);
       document.getElementById('m-accesorios').textContent = orden.dispositivo.accesorios || 'Sin accesorios';
       document.getElementById('m-inspeccion').textContent = orden.detalleInspeccionPrevia || 'Sin observaciones previas';
-      document.getElementById('m-tecnico-input').value = orden.tecnicoAsignado || '';
 
-      if (orden.estado === 'Recepcionado') {
-        await ClinicaAPI.cambiarEstado(idOrden, 'En Taller');
-        renderKanban();
-      }
+      const campoTecnico = document.getElementById('m-tecnico-input');
+      campoTecnico.value = orden.tecnicoAsignado || (esTecnico ? usuarioActual.nombre_completo : '');
+      campoTecnico.readOnly = esTecnico;   // el técnico siempre queda asignado a su propio nombre
+      document.getElementById('btn-asignar').style.display = esTecnico ? 'none' : '';
 
+      document.getElementById('m-serie-input').value = orden.dispositivo.numeroSerie || '';
+      document.querySelectorAll('input[name="encendido"]').forEach(r => {
+        r.checked = orden.encendidoInicial !== null && String(orden.encendidoInicial) === r.value;
+      });
+
+      // Modo lectura para equipos que ya salieron del taller
+      document.getElementById('m-solo-lectura').style.display = soloLectura ? 'block' : 'none';
+      document.getElementById('m-acciones').style.display = soloLectura ? 'none' : 'flex';
+      document.querySelectorAll('.js-edicion, input[name="encendido"], #m-serie-input').forEach(el => { el.disabled = soloLectura; });
+      campoTecnico.disabled = soloLectura;
+
+      actualizarVistaOrden(orden);
+    }
+
+    // Refresca lo que cambia mientras se trabaja (checklist, encendido, progreso y bitácora)
+    function actualizarVistaOrden(orden) {
+      document.getElementById('m-progreso').innerHTML = AppUtils.renderProgreso(orden.estado);
+      document.getElementById('no-enciende-warning').style.display = orden.encendidoInicial === false ? 'block' : 'none';
+      document.getElementById('encendido-estado').textContent =
+        orden.encendidoInicial === null ? 'Aún sin verificar.' : `Verificado: ${AppUtils.textoEncendido(orden.encendidoInicial)}.`;
       renderChecklistItems(orden);
-      renderObservaciones(orden);
+      document.getElementById('m-bitacora').innerHTML = AppUtils.renderResumenBitacora(orden);
+    }
 
-      AppUtils.openModal('modal-taller');
+    async function recargarOrdenActiva() {
+      ordenActiva = await ClinicaAPI.getOrdenPorId(ordenActivaId);
+      if (ordenActiva) actualizarVistaOrden(ordenActiva);
+      return ordenActiva;
     }
 
     function renderChecklistItems(orden) {
       const container = document.getElementById('m-checklist-container');
       container.innerHTML = '';
-      document.getElementById('m-chk-tipo').textContent = orden.tipoServicio;
+      document.getElementById('m-chk-tipo').textContent = AppUtils.textoServicios(orden);
 
-      const plantilla = CATALOGO_LOCAL[orden.tipoServicio] || CATALOGO_LOCAL['Mantención Física'];
-      const checksGuardados = orden.checklists || {};
+      // El checklist sale de la orden (plantilla CSV o catálogo por defecto); el catálogo local es solo respaldo
+      let items = Object.entries(orden.checklists || {}).map(([id, v]) => ({ id, desc: v.desc, res: v.res || 'PENDIENTE', motivo: v.motivo || '' }));
+      if (items.length === 0) {
+        items = (orden.servicios || []).flatMap(sv => CATALOGO_LOCAL[sv] || []).map(i => ({ id: i.id, desc: i.desc, res: 'PENDIENTE', motivo: '' }));
+      }
 
-      plantilla.forEach(item => {
-        const valorActual = (checksGuardados[item.id] && checksGuardados[item.id].res) ? checksGuardados[item.id].res : 'PENDIENTE';
-        
+      const revisados = items.filter(i => i.res !== 'PENDIENTE').length;
+      const porcentaje = items.length ? Math.round(revisados * 100 / items.length) : 0;
+      const avance = document.createElement('div');
+      avance.innerHTML = `<div style="font-size:0.78rem; color:var(--gris-medio); font-weight:600;">${revisados} de ${items.length} ítems revisados (${porcentaje}%)</div>
+                          <div class="barra-avance"><span style="width:${porcentaje}%"></span></div>`;
+      container.appendChild(avance);
+
+      items.forEach(item => {
         const row = document.createElement('div');
         row.className = 'checklist-item';
-        row.innerHTML = `
-          <div>
-            <strong>${item.id}:</strong> ${item.desc}
-          </div>
-          <div class="checklist-actions">
-            <button class="btn-chk ${valorActual === 'OK' ? 'active-ok' : ''}" onclick="guardarCheckItem('${item.id}', '${item.desc}', 'OK')">OK</button>
-            <button class="btn-chk ${valorActual === 'FALLA' ? 'active-nok' : ''}" onclick="guardarCheckItem('${item.id}', '${item.desc}', 'FALLA')">FALLA</button>
-            <button class="btn-chk ${valorActual === 'NO_APLICA' ? 'active-na' : ''}" onclick="guardarCheckItem('${item.id}', '${item.desc}', 'NO_APLICA')">N/A</button>
-          </div>
-        `;
+
+        const texto = document.createElement('div');
+        const codigo = document.createElement('strong');
+        codigo.textContent = item.id + ': ';
+        texto.appendChild(codigo);
+        texto.appendChild(document.createTextNode(item.desc));
+        if (item.res === 'FALLA') {
+          const motivo = document.createElement('span');
+          motivo.className = 'motivo-falla';
+          motivo.textContent = 'Motivo de la falla: ' + (item.motivo || 'sin motivo registrado');
+          texto.appendChild(motivo);
+        }
+        row.appendChild(texto);
+
+        const acciones = document.createElement('div');
+        acciones.className = 'checklist-actions';
+        [['OK', 'OK', 'active-ok'], ['FALLA', 'FALLA', 'active-nok'], ['NO_APLICA', 'N/A', 'active-na']].forEach(([valor, etiqueta, claseActiva]) => {
+          const boton = document.createElement('button');
+          boton.className = 'btn-chk' + (item.res === valor ? ' ' + claseActiva : '');
+          boton.textContent = etiqueta;
+          boton.disabled = soloLectura;
+          boton.addEventListener('click', () => guardarCheckItem(item, valor));
+          acciones.appendChild(boton);
+        });
+        row.appendChild(acciones);
         container.appendChild(row);
       });
     }
 
-    async function guardarCheckItem(codigo, desc, resultado) {
+    async function guardarCheckItem(item, resultado) {
       if (!ordenActivaId) return;
-      try {
-        await ClinicaAPI.actualizarChecklist(ordenActivaId, codigo, resultado, desc);
-        const ordenActualizada = await ClinicaAPI.getOrdenPorId(ordenActivaId);
-        renderChecklistItems(ordenActualizada);
-      } catch (e) {
-        console.error('Error al actualizar checklist:', e);
-      }
-    }
 
-    function renderObservaciones(orden) {
-      const container = document.getElementById('m-observaciones-list');
-      container.innerHTML = '';
-      const lista = orden.observaciones || [];
-
-      if (lista.length === 0) {
-        container.innerHTML = '<div style="font-size:0.8rem; color:var(--gris-claro);">Sin anotaciones técnicas aún.</div>';
-        return;
-      }
-
-      lista.forEach(obs => {
-        const item = document.createElement('div');
-        const colorBorde = obs.criticidad === 'Alta' ? 'var(--inacap-rojo)' : 'var(--inacap-negro)';
-        item.style.cssText = `background:#FFF; border:1px solid var(--border-card); border-left:3px solid ${colorBorde}; padding:0.5rem 0.75rem; margin-bottom:0.4rem; font-size:0.8rem; border-radius:0 4px 4px 0;`;
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between; margin-bottom:0.2rem;">
-            <strong>${obs.autor} <span style="font-size:0.72rem; color:${colorBorde}; font-weight:800;">[${obs.criticidad}]</span></strong>
-            <span style="color:var(--gris-medio); font-size:0.74rem;">${obs.fecha}</span>
-          </div>
-          <div>${obs.texto}</div>
-        `;
-        container.appendChild(item);
-      });
-    }
-
-    async function agregarObservacion() {
-      const texto = document.getElementById('obs-texto').value.trim();
-      const criticidad = document.getElementById('obs-criticidad').value;
-      const tecnico = document.getElementById('m-tecnico-input').value.trim() || 'Alumno Técnico';
-
-      if (!texto) {
-        AppUtils.showToast('Escriba el detalle de la observación.', 'warning');
-        return;
+      // Si falla, hay que explicar por qué
+      let motivo = '';
+      if (resultado === 'FALLA') {
+        const escrito = await AppUtils.pedirTexto(
+          '¿Por qué falló este punto?',
+          `${item.id}: ${item.desc}`,
+          { textoOk: 'Registrar falla', valorInicial: item.motivo || '', placeholder: 'Ej: ventilador trabado, el equipo no arranca tras reinstalar...' }
+        );
+        if (escrito === null) return;
+        motivo = escrito;
       }
 
       try {
-        await ClinicaAPI.agregarObservacion(ordenActivaId, texto, tecnico, criticidad);
-        document.getElementById('obs-texto').value = '';
-        const orden = await ClinicaAPI.getOrdenPorId(ordenActivaId);
-        renderObservaciones(orden);
-        AppUtils.showToast('Observación guardada.', 'success');
+        await ClinicaAPI.actualizarChecklist(ordenActivaId, item.id, resultado, item.desc, motivo);
+        await recargarOrdenActiva();
       } catch (e) {
-        AppUtils.showToast('Error al guardar observación', 'danger');
+        AppUtils.showToast(e.message || 'Error al actualizar el checklist', 'danger');
       }
     }
 
+    async function guardarEncendido(valor) {
+      try {
+        const r = await fetch(`/api/ordenes/${ordenActivaId}/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ encendidoInicial: valor })
+        });
+        if (!r.ok) throw new Error((await r.json()).error || 'No se pudo guardar');
+        await recargarOrdenActiva();
+        AppUtils.showToast(valor ? 'Encendido verificado: el equipo enciende.' : 'Registrado: el equipo no enciende.', valor ? 'success' : 'warning');
+        renderKanban();
+      } catch (e) {
+        AppUtils.showToast(e.message || 'Error al guardar el encendido', 'danger');
+      }
+    }
+
+    async function guardarSerie() {
+      const serie = document.getElementById('m-serie-input').value.trim();
+      if (!serie) {
+        AppUtils.showToast('Escriba el número de serie del equipo.', 'warning');
+        return;
+      }
+      try {
+        const r = await fetch(`/api/ordenes/${ordenActivaId}/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numeroSerie: serie })
+        });
+        if (!r.ok) throw new Error((await r.json()).error || 'No se pudo guardar');
+        await recargarOrdenActiva();
+        AppUtils.showToast(`Número de serie guardado: ${serie}`, 'success');
+      } catch (e) {
+        AppUtils.showToast(e.message || 'Error al guardar el número de serie', 'danger');
+      }
+    }
+
+    // Solo supervisión (docente/admin): asignar un técnico manualmente
     async function guardarTecnico() {
       const tec = document.getElementById('m-tecnico-input').value.trim();
       if (!tec) return;
       try {
         await ClinicaAPI.cambiarEstado(ordenActivaId, 'En Taller', tec);
+        await recargarOrdenActiva();
         AppUtils.showToast(`Técnico asignado: ${tec}`, 'success');
         renderKanban();
       } catch (e) {
@@ -356,27 +606,60 @@
     }
 
     async function pausarOrdenTraspaso() {
-      const motivo = prompt('Motivo de la pausa / cambio de turno (ej: término de bloque):');
-      if (!motivo) return;
+      const motivo = await AppUtils.pedirTexto(
+        'Pausar / traspasar turno',
+        'Indica el motivo de la pausa o el cambio de turno (ej: término de bloque). Quedará en la bitácora.',
+        { textoOk: 'Pausar equipo', placeholder: 'Motivo de la pausa...' }
+      );
+      if (motivo === null) return;
 
-      const tec = document.getElementById('m-tecnico-input').value.trim() || 'Alumno saliente';
-      await ClinicaAPI.agregarObservacion(ordenActivaId, `[PAUSA / TRASPASO]: ${motivo}`, tec, 'Media');
-      await ClinicaAPI.cambiarEstado(ordenActivaId, 'Pausado');
-
-      AppUtils.closeModal('modal-taller');
-      AppUtils.showToast('Orden pausada.', 'warning');
-      renderKanban();
+      const tec = (usuarioActual && usuarioActual.nombre_completo) || document.getElementById('m-tecnico-input').value.trim() || 'Alumno saliente';
+      try {
+        await ClinicaAPI.agregarObservacion(ordenActivaId, `[PAUSA / TRASPASO]: ${motivo}`, tec, 'Media');
+        await ClinicaAPI.cambiarEstado(ordenActivaId, 'Pausado');
+        AppUtils.closeModal('modal-taller');
+        AppUtils.showToast('Orden pausada. La encuentras en "Mis equipos atendidos".', 'warning');
+        renderKanban();
+      } catch (e) {
+        AppUtils.showToast('No se pudo pausar la orden', 'danger');
+      }
     }
 
     async function solicitarVistoBuenoDocente() {
+      // Avisos antes de enviar a calidad
+      const orden = await ClinicaAPI.getOrdenPorId(ordenActivaId);
+      const items = Object.values((orden && orden.checklists) || {});
+      const pendientes = items.filter(i => i.res === 'PENDIENTE').length;
+      const avisos = [];
+      if (pendientes > 0) avisos.push(`hay ${pendientes} ítem(s) del checklist sin revisar`);
+      if (orden && !orden.dispositivo.numeroSerie) avisos.push('falta registrar el número de serie');
+      if (orden && orden.encendidoInicial === null) avisos.push('falta verificar si el equipo enciende');
+      if (avisos.length > 0) {
+        const seguir = await AppUtils.confirmar(
+          `Antes de enviar a V°B° docente: ${avisos.join(', ')}. ¿Enviar de todas formas?`,
+          { titulo: 'Falta información', textoOk: 'Enviar igual', textoCancelar: 'Seguir revisando' }
+        );
+        if (!seguir) return;
+      }
+
+      const autor = (usuarioActual && usuarioActual.nombre_completo) || 'Técnico';
+      try {
+        await ClinicaAPI.agregarObservacion(ordenActivaId, '[ENVÍO A V°B°]: trabajo técnico finalizado, pendiente de certificación docente.', autor, 'Baja');
+      } catch (e) { /* la bitácora no debe impedir el envío */ }
+
       AppUtils.closeModal('modal-taller');
-      AppUtils.showToast('Trabajo técnico finalizado. Notificado para V°B° docente.', 'success');
-      setTimeout(() => {
-        window.location.href = '/control-calidad/';
-      }, 500);
+      if (esTecnico) {
+        // El técnico no entra a Control de Calidad: se queda en su mesa de taller
+        AppUtils.showToast('Enviado a V°B° docente. Puedes tomar el siguiente equipo.', 'success');
+        renderKanban();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        AppUtils.showToast('Trabajo técnico finalizado. Notificado para V°B° docente.', 'success');
+        setTimeout(() => { window.location.href = '/control-calidad/'; }, 500);
+      }
     }
 
-    renderKanban();
+    iniciar();
   </script>
 </body>
 </html>

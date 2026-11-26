@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Equipos por Estudiante — Clínica del PC INACAP</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <style>
+    .layout-estudiantes { display: grid; grid-template-columns: 300px 1fr; gap: 1.25rem; align-items: flex-start; }
+    @media (max-width: 900px) { .layout-estudiantes { grid-template-columns: 1fr; } }
+    .item-estudiante { width: 100%; text-align: left; background: #FFFFFF; border: 1px solid var(--border-card); border-radius: var(--radius-sm);
+      padding: 0.7rem 0.85rem; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.12s ease; font-family: inherit; }
+    .item-estudiante:hover { border-color: var(--inacap-negro); }
+    .item-estudiante.activo { border-color: var(--inacap-rojo); background: #FFF5F6; }
+    .item-estudiante strong { display: block; font-size: 0.9rem; color: var(--inacap-negro); }
+    .item-estudiante small { color: var(--gris-medio); font-size: 0.78rem; }
+    .fila-dato { display: grid; grid-template-columns: minmax(110px, 150px) 1fr; gap: 0.35rem 0.85rem; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+  <div id="nav-placeholder"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <div class="step-indicator">Supervisión Docente</div>
+        <h1 class="page-title">Equipos por Estudiante</h1>
+        <p class="page-subtitle">Revisa qué equipos atendió cada estudiante técnico, en qué estado quedaron y la bitácora de cada intervención.</p>
+      </div>
+    </div>
+
+    <div class="layout-estudiantes">
+      <!-- Lista de estudiantes -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Estudiantes</h2>
+          <span class="badge" id="cnt-estudiantes">0</span>
+        </div>
+        <input type="search" id="buscar-estudiante" class="form-control" placeholder="Buscar estudiante..." style="margin-bottom:0.85rem;">
+        <div id="lista-estudiantes"></div>
+      </div>
+
+      <!-- Equipos del estudiante seleccionado -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title" id="titulo-equipos">Selecciona un estudiante</h2>
+          <select id="filtro-estado" class="form-control" style="width:200px;">
+            <option value="">Todos los estados</option>
+            <option value="curso">En curso</option>
+            <option value="terminados">Terminados</option>
+          </select>
+        </div>
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr><th>Etiqueta</th><th>Equipo</th><th>Servicios</th><th>Estado</th><th>Fallas</th><th>Ingreso</th><th style="text-align:right;">Detalle</th></tr>
+            </thead>
+            <tbody id="tbody-equipos">
+              <tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--gris-medio);">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Detalle de un equipo (solo lectura) -->
+  <div class="modal-overlay" id="modal-detalle">
+    <div class="modal-content" style="max-width: 720px;">
+      <div class="modal-header">
+        <div>
+          <span class="kanban-code" id="d-codigo">-</span>
+          <h3 class="modal-title" id="d-equipo" style="margin-top:0.35rem;">-</h3>
+          <div id="d-titular" style="font-size:0.85rem; color:var(--gris-medio);">-</div>
+        </div>
+        <button class="modal-close" onclick="AppUtils.closeModal('modal-detalle')">&times;</button>
+      </div>
+      <div id="d-progreso"></div>
+
+      <div style="background:#F9FAFB; border:1px solid var(--border-card); border-radius:var(--radius-sm); padding:1rem; margin-bottom:1rem;">
+        <h4 style="font-size:0.9rem; font-weight:800; margin-bottom:0.2rem;">Bitácora de la intervención</h4>
+        <p style="font-size:0.76rem; color:var(--gris-medio); margin-bottom:0.75rem;">Resumen de lo que registró el estudiante.</p>
+        <div id="d-bitacora"></div>
+      </div>
+
+      <div id="d-checklist" style="margin-bottom:1rem;"></div>
+      <div id="d-extra"></div>
+
+      <div class="modal-footer" style="text-align:right;">
+        <button class="btn btn-outline btn-sm" onclick="AppUtils.closeModal('modal-detalle')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer-placeholder"></div>
+
+  <script src="/static/js/api_cliente.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script>
+    document.getElementById('nav-placeholder').innerHTML = AppUtils.renderHeader('est');
+    document.getElementById('footer-placeholder').innerHTML = AppUtils.renderFooter();
+
+    const esc = t => AppUtils.escapar(t);
+    const EN_CURSO = ['Recepcionado', 'En Taller', 'Pausado'];
+
+    let ordenes = [];
+    let estudianteActivo = null;
+
+    async function iniciar() {
+      ordenes = await ClinicaAPI.getOrdenes();
+      pintarEstudiantes();
+    }
+
+    // Agrupa las órdenes por el estudiante técnico que las atendió
+    function agruparPorEstudiante() {
+      const mapa = new Map();
+      ordenes.filter(o => o.tecnicoAsignado).forEach(o => {
+        if (!mapa.has(o.tecnicoAsignado)) mapa.set(o.tecnicoAsignado, []);
+        mapa.get(o.tecnicoAsignado).push(o);
+      });
+      return [...mapa.entries()]
+        .map(([nombre, lista]) => ({ nombre, lista }))
+        .sort((a, b) => b.lista.length - a.lista.length || a.nombre.localeCompare(b.nombre));
+    }
+
+    function pintarEstudiantes() {
+      const texto = document.getElementById('buscar-estudiante').value.trim().toLowerCase();
+      const todos = agruparPorEstudiante();
+      const visibles = todos.filter(e => e.nombre.toLowerCase().includes(texto));
+      document.getElementById('cnt-estudiantes').textContent = todos.length;
+
+      const cont = document.getElementById('lista-estudiantes');
+      cont.innerHTML = '';
+      if (visibles.length === 0) {
+        cont.innerHTML = '<div style="text-align:center; color:var(--gris-medio); font-size:0.85rem; padding:1rem 0;">' +
+          (todos.length ? 'Ningún estudiante coincide.' : 'Aún no hay equipos asignados a estudiantes.') + '</div>';
+        if (!todos.length) pintarEquipos();
+        return;
+      }
+
+      // Si no hay uno elegido (o desapareció del filtro), se elige el primero
+      if (!estudianteActivo || !todos.some(e => e.nombre === estudianteActivo)) estudianteActivo = visibles[0].nombre;
+
+      visibles.forEach(e => {
+        const enCurso = e.lista.filter(o => EN_CURSO.includes(o.estado)).length;
+        const boton = document.createElement('button');
+        boton.className = 'item-estudiante' + (e.nombre === estudianteActivo ? ' activo' : '');
+        boton.innerHTML = `<strong>${esc(e.nombre)}</strong><small>${e.lista.length} equipo(s) • ${enCurso} en curso • ${e.lista.length - enCurso} terminado(s)</small>`;
+        boton.addEventListener('click', () => { estudianteActivo = e.nombre; pintarEstudiantes(); });
+        cont.appendChild(boton);
+      });
+      pintarEquipos();
+    }
+
+    function contarFallas(o) {
+      return Object.values(o.checklists || {}).filter(i => i.res === 'FALLA').length;
+    }
+
+    function pintarEquipos() {
+      const tbody = document.getElementById('tbody-equipos');
+      const estudiante = agruparPorEstudiante().find(e => e.nombre === estudianteActivo);
+      if (!estudiante) {
+        document.getElementById('titulo-equipos').textContent = 'Selecciona un estudiante';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--gris-medio);">No hay equipos para mostrar.</td></tr>';
+        return;
+      }
+      document.getElementById('titulo-equipos').textContent = `Equipos de ${estudiante.nombre}`;
+
+      const filtro = document.getElementById('filtro-estado').value;
+      const lista = estudiante.lista.filter(o =>
+        !filtro || (filtro === 'curso' ? EN_CURSO.includes(o.estado) : !EN_CURSO.includes(o.estado)));
+
+      tbody.innerHTML = '';
+      if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--gris-medio);">No hay equipos con ese filtro.</td></tr>';
+        return;
+      }
+
+      lista.forEach(o => {
+        const fallas = contarFallas(o);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="kanban-code">${esc(o.etiquetaTaller)}</span></td>
+          <td><strong>${esc(o.dispositivo.tipo)} ${esc(o.dispositivo.marca)}</strong> <span style="color:var(--gris-medio);">${esc(o.dispositivo.modelo)}</span></td>
+          <td>${esc(AppUtils.textoServicios(o))}</td>
+          <td>${AppUtils.getStatusBadge(o.estado)}</td>
+          <td>${fallas ? `<span style="color:var(--inacap-rojo); font-weight:700;">${fallas}</span>` : '<span style="color:var(--gris-medio);">0</span>'}</td>
+          <td>${esc(o.fechaIngreso || '')}</td>
+          <td style="text-align:right;"><button class="btn btn-outline btn-sm">Ver bitácora</button></td>`;
+        tr.querySelector('button').addEventListener('click', () => abrirDetalle(o.idOrden));
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function abrirDetalle(idOrden) {
+      const o = await ClinicaAPI.getOrdenPorId(idOrden);
+      if (!o) return;
+
+      document.getElementById('d-codigo').textContent = o.etiquetaTaller;
+      document.getElementById('d-equipo').textContent = `${o.dispositivo.tipo} ${o.dispositivo.marca} ${o.dispositivo.modelo}`;
+      document.getElementById('d-titular').textContent = `Titular: ${o.propietario.nombre}`;
+      document.getElementById('d-progreso').innerHTML = AppUtils.renderProgreso(o.estado);
+      document.getElementById('d-bitacora').innerHTML = AppUtils.renderResumenBitacora(o);
+
+      // Detalle del checklist ítem por ítem
+      const items = Object.entries(o.checklists || {});
+      document.getElementById('d-checklist').innerHTML = items.length ? `
+        <h4 style="font-size:0.9rem; font-weight:800; margin-bottom:0.5rem;">Checklist</h4>
+        ${items.map(([codigo, i]) => `
+          <div style="display:flex; justify-content:space-between; gap:0.75rem; border-bottom:1px solid #F3F4F6; padding:0.35rem 0; font-size:0.84rem;">
+            <span><strong>${esc(codigo)}:</strong> ${esc(i.desc)}${i.res === 'FALLA' ? `<br><small style="color:var(--inacap-rojo);">Motivo: ${esc(i.motivo || 'Sin motivo registrado')}</small>` : ''}</span>
+            <span class="badge ${i.res === 'OK' ? 'badge-listo' : i.res === 'FALLA' ? 'badge-taller' : 'badge-custodia'}">${esc(i.res === 'NO_APLICA' ? 'N/A' : i.res)}</span>
+          </div>`).join('')}` : '';
+
+      // V°B° y encuesta, si existen
+      let extra = '';
+      if (o.vistoBuenoDocente) {
+        const vb = o.vistoBuenoDocente;
+        extra += `<div style="background:#F9FAFB; border:1px solid var(--border-card); border-left:4px solid var(--inacap-negro); border-radius:var(--radius-sm); padding:0.85rem; margin-bottom:0.75rem; font-size:0.85rem;">
+          <strong>Visto Bueno:</strong> ${esc(vb.docente)} — ${esc(vb.fecha)}<br><span style="color:var(--text-secondary);">${esc(vb.comentario)}</span></div>`;
+      }
+      if (o.encuesta) {
+        extra += `<div style="background:#F9FAFB; border:1px solid var(--border-card); border-radius:var(--radius-sm); padding:0.85rem; font-size:0.85rem;">
+          <strong>Encuesta del titular:</strong> <span style="color:var(--inacap-rojo); font-weight:800;">${'★'.repeat(o.encuesta.nota)}</span> (${esc(o.encuesta.nota)}/5)
+          ${o.encuesta.comentario ? `<br><span style="color:var(--text-secondary);">${esc(o.encuesta.comentario)}</span>` : ''}</div>`;
+      }
+      document.getElementById('d-extra').innerHTML = extra;
+
+      AppUtils.openModal('modal-detalle');
+    }
+
+    document.getElementById('buscar-estudiante').addEventListener('input', pintarEstudiantes);
+    document.getElementById('filtro-estado').addEventListener('change', pintarEquipos);
+    iniciar();
+  </script>
+</body>
+</html>

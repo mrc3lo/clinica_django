@@ -14,4 +14,6 @@ urlpatterns = [
     path('control-calidad/', views.vista_calidad, name='portal_calidad'),
     path('entrega/', views.vista_entrega, name='portal_entrega'),
     path('metricas/', views.vista_metricas, name='portal_metricas'),
+    path('estudiantes/', views.vista_estudiantes, name='portal_estudiantes'),
+    path('administracion/', views.vista_administracion, name='portal_administracion'),
 ]

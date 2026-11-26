@@ -14,16 +14,42 @@
   <main class="main-content">
     <div class="page-header">
       <div>
-        <div class="step-indicator">Paso 01 • Portal Móvil Comunitario</div>
-        <h1 class="page-title">Pre-inscripción de Dispositivo</h1>
-        <p class="page-subtitle">Portal público para enrolamiento de computadores con validación de RUT y registro en la base de datos local.</p>
+        <div class="step-indicator" id="enc-paso">Paso 01 • Portal Móvil Comunitario</div>
+        <h1 class="page-title" id="enc-titulo">Pre-inscripción de Dispositivo</h1>
+        <p class="page-subtitle" id="enc-subtitulo">Portal público para enrolamiento de computadores con validación de RUT y registro en la base de datos local.</p>
       </div>
       <div>
-        <a href="/login/" class="btn btn-outline btn-sm">Acceso Funcionarios ➔</a>
+        <a href="/login/" class="btn btn-outline btn-sm" id="enc-enlace">Acceso Funcionarios ➔</a>
       </div>
     </div>
 
-    <div class="grid-2">
+    <!-- Pantalla de éxito (reemplaza al formulario al terminar) -->
+    <div id="voucher-card" class="card" style="display:none; max-width:600px; margin:0 auto 1.5rem; border-top:4px solid var(--inacap-rojo); text-align:center;">
+      <div style="width:56px; height:56px; border-radius:50%; background:var(--inacap-negro); color:#fff; font-size:1.7rem; display:flex; align-items:center; justify-content:center; margin:0.5rem auto 0.9rem;">&#10003;</div>
+      <h3 style="color:var(--inacap-negro); font-size:1.4rem; font-weight:800;" id="ok-titulo">¡Pre-inscripción registrada!</h3>
+      <p style="font-size:0.9rem; color:var(--gris-medio); margin-top:0.35rem;" id="ok-texto">Guarda este código: lo necesitarás en el Mesón de Recepción.</p>
+
+      <div style="background:#F9FAFB; border:1px dashed var(--border-card); border-radius:var(--radius-sm); padding:1.25rem; margin:1.25rem auto; max-width:380px;">
+        <div style="font-size:0.74rem; color:var(--gris-medio); text-transform:uppercase; letter-spacing:0.5px; font-weight:700;">Identificador de Taller</div>
+        <div id="voucher-code" class="kanban-code" style="font-size:1.6rem; margin:0.5rem 0; display:inline-block;">CLI-PC-2026-XXXX</div>
+        <div id="voucher-detail" style="font-size:0.88rem; color:var(--text-main); font-weight:600;">-</div>
+        <div id="voucher-servicios" style="font-size:0.82rem; color:var(--inacap-rojo); font-weight:700; margin-top:0.25rem;"></div>
+        <button class="btn btn-outline btn-sm" style="margin-top:0.75rem;" onclick="copiarCodigo()" id="btn-copiar">Copiar código</button>
+      </div>
+
+      <ol id="ok-pasos" style="text-align:left; max-width:380px; margin:0 auto 1.25rem; padding-left:1.25rem; font-size:0.86rem; line-height:1.7; color:var(--text-secondary);">
+        <li>Lleva tu computador y accesorios al evento.</li>
+        <li>Presenta tu RUT o este código en el <strong>Mesón de Recepción</strong>.</li>
+        <li>Te avisaremos por teléfono cuando esté listo para retiro.</li>
+      </ol>
+
+      <div style="display:flex; gap:0.65rem; justify-content:center; flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="resetFormularioParaOtroEquipo()">+ Inscribir otro computador</button>
+        <a href="/login/" class="btn btn-secondary btn-sm" id="ok-enlace">Acceso Mesón ➔</a>
+      </div>
+    </div>
+
+    <div class="grid-2" id="grid-form">
       <!-- Formulario de Preinscripción -->
       <div class="card" id="form-card">
         <div class="card-header">
@@ -104,12 +130,9 @@
 
           <div class="grid-2">
             <div class="form-group">
-              <label class="form-label required">Servicio Principal Solicitado</label>
-              <select id="servicio" class="form-control" required>
-                <option value="Mantención Física">Mantención Física (Limpieza y pasta térmica)</option>
-                <option value="Mantención Lógica">Mantención Lógica (Optimización, virus, temporales)</option>
-                <option value="Formateo">Formateo e Instalación de Sistema Operativo</option>
-              </select>
+              <label class="form-label required">Servicios Solicitados</label>
+              <div id="selector-servicios"></div>
+              <div class="form-help">Puedes marcar más de uno.</div>
             </div>
 
             <div class="form-group">
@@ -182,26 +205,6 @@
           </p>
         </div>
 
-        <!-- Comprobante de éxito -->
-        <div id="voucher-card" class="card" style="display: none; margin-top: 1.5rem; border-left: 4px solid var(--inacap-rojo);">
-          <div style="text-align: center;">
-            <h3 style="color: var(--inacap-negro); font-size: 1.25rem; font-weight: 800;">Pre-inscripción Registrada</h3>
-            <p style="font-size: 0.85rem; color: var(--gris-medio); margin-top: 0.35rem;">
-              Presente su RUT en el <strong>Mesón de Recepción</strong> el día del evento para validar y entregar su dispositivo.
-            </p>
-            
-            <div style="background: #F9FAFB; border: 1px dashed var(--border-card); border-radius: var(--radius-sm); padding: 1.15rem; margin: 1.15rem auto; max-width: 340px;">
-              <div style="font-size: 0.74rem; color: var(--gris-medio); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;">Identificador de Taller:</div>
-              <div id="voucher-code" class="kanban-code" style="font-size: 1.35rem; margin: 0.4rem 0; display: inline-block;">CLI-PC-2026-XXXX</div>
-              <div id="voucher-detail" style="font-size: 0.88rem; color: var(--text-main); font-weight: 600;">-</div>
-            </div>
-
-            <div style="display: flex; gap: 0.65rem; justify-content: center; flex-wrap: wrap;">
-              <button class="btn btn-outline btn-sm" onclick="resetFormularioParaOtroEquipo()">+ Inscribir Otro Computador</button>
-              <a href="/login/" class="btn btn-secondary btn-sm">Acceso Mesón ➔</a>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </main>
@@ -236,6 +239,30 @@
   <script>
     document.getElementById('nav-placeholder').innerHTML = AppUtils.renderHeader('pre');
     document.getElementById('footer-placeholder').innerHTML = AppUtils.renderFooter();
+
+    // Modo Registro Express: el mesón (recepción/admin) inscribe a quien llega sin haberse pre-inscrito por QR
+    const MODO_EXPRESS = {{ modo_express|yesno:"true,false" }};
+    let ultimoRutRegistrado = '';
+
+    if (MODO_EXPRESS) {
+      document.getElementById('enc-paso').textContent = 'Pasos 01 y 02 • Registro Express en Mesón';
+      document.getElementById('enc-titulo').textContent = 'Registro Express (Sin QR)';
+      document.getElementById('enc-subtitulo').textContent = 'Inscribe en el mesón a quien llega sin pre-inscripción. Al terminar podrás recepcionar el equipo de inmediato.';
+      const volver = document.getElementById('enc-enlace');
+      volver.href = '/recepcion/';
+      volver.textContent = '← Volver al Mesón';
+      document.getElementById('ok-titulo').textContent = '¡Equipo registrado!';
+      document.getElementById('ok-texto').textContent = 'Rotula el equipo con este código y continúa con la recepción.';
+      document.getElementById('ok-pasos').style.display = 'none';
+      const siguiente = document.getElementById('ok-enlace');
+      siguiente.textContent = 'Recepcionar ahora ➔';
+      siguiente.addEventListener('click', e => {
+        e.preventDefault();
+        window.location.href = '/recepcion/?q=' + encodeURIComponent(ultimoRutRegistrado);
+      });
+    }
+
+    AppUtils.renderSelectorServicios('selector-servicios', ['Mantención Física']);
 
     async function formatearYBuscarRut(input) {
       const formateado = AppUtils.formatRut(input.value);
@@ -274,6 +301,13 @@
         return;
       }
 
+      const servicios = AppUtils.leerServicios('selector-servicios');
+      if (servicios.length === 0) {
+        AppUtils.showToast('Marque al menos un servicio.', 'danger');
+        document.getElementById('selector-servicios').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
       const boton = document.getElementById('btn-enviar-pre');
       boton.disabled = true;
       boton.textContent = 'Guardando en la base de datos...';
@@ -288,7 +322,7 @@
         tipo: document.getElementById('tipo').value,
         marca: document.getElementById('marca').value.trim(),
         modelo: document.getElementById('modelo').value.trim() || 'No especificado',
-        tipoServicio: document.getElementById('servicio').value,
+        servicios: servicios,
         accesorios: document.getElementById('accesorios').value.trim() || 'Sin accesorios',
         fallaReportada: document.getElementById('falla').value.trim(),
         estado: 'Preinscrito'
@@ -296,11 +330,14 @@
 
       try {
         const nuevaOrden = await ClinicaAPI.crearOrden(payload);
+        ultimoRutRegistrado = rut;
 
         document.getElementById('voucher-code').textContent = nuevaOrden.etiquetaTaller;
         document.getElementById('voucher-detail').textContent = `${nuevaOrden.dispositivo.tipo} ${nuevaOrden.dispositivo.marca} — ${nuevaOrden.propietario.nombre}`;
+        document.getElementById('voucher-servicios').textContent = AppUtils.textoServicios(nuevaOrden);
+        document.getElementById('grid-form').style.display = 'none';
         document.getElementById('voucher-card').style.display = 'block';
-        document.getElementById('voucher-card').scrollIntoView({ behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
         AppUtils.showToast(`Pre-inscripción guardada: ${nuevaOrden.etiquetaTaller}`, 'success');
       } catch (error) {
@@ -311,13 +348,26 @@
       }
     }
 
+    async function copiarCodigo() {
+      const codigo = document.getElementById('voucher-code').textContent;
+      try {
+        await navigator.clipboard.writeText(codigo);
+        AppUtils.showToast('Código copiado: ' + codigo, 'success');
+      } catch (e) {
+        AppUtils.showToast('No se pudo copiar. Anota el código: ' + codigo, 'warning');
+      }
+    }
+
     function resetFormularioParaOtroEquipo() {
       document.getElementById('tipo').value = 'Notebook';
       document.getElementById('marca').value = '';
       document.getElementById('modelo').value = '';
       document.getElementById('accesorios').value = '';
       document.getElementById('falla').value = '';
+      AppUtils.renderSelectorServicios('selector-servicios', ['Mantención Física']);
       document.getElementById('voucher-card').style.display = 'none';
+      document.getElementById('grid-form').style.display = '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       AppUtils.showToast('Listo para ingresar otro equipo bajo el mismo RUT.', 'info');
     }
   </script>

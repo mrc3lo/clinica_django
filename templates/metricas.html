@@ -178,9 +178,9 @@
         document.getElementById('st-lis').textContent = metricas.listo;
         document.getElementById('st-ent').textContent = metricas.entregado;
 
-        const nFisica = ordenes.filter(o => o.tipoServicio === 'Mantención Física').length;
-        const nLogica = ordenes.filter(o => o.tipoServicio === 'Mantención Lógica').length;
-        const nForm = ordenes.filter(o => o.tipoServicio === 'Formateo').length;
+        const nFisica = ordenes.filter(o => (o.servicios || []).includes('Mantención Física')).length;
+        const nLogica = ordenes.filter(o => (o.servicios || []).includes('Mantención Lógica')).length;
+        const nForm = ordenes.filter(o => (o.servicios || []).includes('Formateo')).length;
         const totalServ = ordenes.length || 1;
 
         const pFis = Math.round((nFisica / totalServ) * 100);
@@ -250,7 +250,7 @@
           o.tipoServicio || '',
           o.estado || '',
           `"${o.tecnicoAsignado || ''}"`,
-          o.encendidoInicial ? 'SI' : 'NO',
+          o.encendidoInicial === null ? 'SIN VERIFICAR' : (o.encendidoInicial ? 'SI' : 'NO'),
           o.encuesta ? o.encuesta.nota : ''
         ].join(",");
         csvContent += fila + "\n";

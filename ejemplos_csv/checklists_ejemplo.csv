@@ -1,0 +1,15 @@
+﻿tipo_servicio;codigo;descripcion
+Mantención Física;F-01;Inspección y apertura del equipo
+Mantención Física;F-02;Limpieza de ventiladores y disipador
+Mantención Física;F-03;Cambio de pasta térmica
+Mantención Física;F-04;Limpieza de puertos
+Mantención Física;F-05;Reensamblaje y prueba de encendido
+Mantención Lógica;L-01;Eliminación de archivos temporales
+Mantención Lógica;L-02;Desactivar programas de inicio
+Mantención Lógica;L-03;Escaneo antivirus y antimalware
+Mantención Lógica;L-04;Actualización de Windows y drivers
+Formateo;R-01;Respaldo de datos con consentimiento del titular
+Formateo;R-02;Instalación limpia del sistema operativo
+Formateo;R-03;Instalación de drivers
+Formateo;R-04;Instalación de ofimática y utilitarios
+Formateo;R-05;Prueba funcional final

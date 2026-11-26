@@ -570,3 +570,133 @@ textarea.form-control {
 .star-rating .star.active {
   color: var(--inacap-rojo);
 }
+
+/* ==============================================================================
+   10. BARRA DE PROGRESO DE LA ORDEN (pasos del proceso)
+   ============================================================================== */
+.progreso-orden {
+  display: flex;
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 0.5rem 0.7rem;
+  background: #F9FAFB;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+}
+
+.progreso-paso {
+  flex: 1;
+  position: relative;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--gris-medio);
+  line-height: 1.2;
+}
+
+.progreso-paso::before {
+  content: '';
+  position: absolute;
+  top: 11px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: #D1D5DB;
+  z-index: 0;
+}
+
+.progreso-paso:first-child::before { display: none; }
+.progreso-paso.hecho::before,
+.progreso-paso.actual::before { background: var(--inacap-negro); }
+
+.progreso-punto {
+  position: relative;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto 0.35rem;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 2px solid #D1D5DB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+}
+
+.progreso-paso.hecho .progreso-punto {
+  background: var(--inacap-negro);
+  border-color: var(--inacap-negro);
+  color: #FFFFFF;
+}
+
+.progreso-paso.actual .progreso-punto {
+  background: var(--inacap-rojo);
+  border-color: var(--inacap-rojo);
+  color: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(211, 18, 42, 0.15);
+}
+
+.progreso-paso.actual { color: var(--inacap-rojo); }
+.progreso-paso.hecho { color: var(--inacap-negro); }
+
+/* Barra fina de avance del checklist */
+.barra-avance {
+  height: 6px;
+  background: #E5E7EB;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 0.35rem 0 0.75rem;
+}
+.barra-avance > span {
+  display: block;
+  height: 100%;
+  background: var(--inacap-rojo);
+  transition: width 0.25s ease;
+}
+
+/* Filtros */
+.barra-filtros {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+}
+.barra-filtros .form-control { margin: 0; }
+
+@media (max-width: 640px) {
+  .progreso-paso { font-size: 0.62rem; }
+}
+
+/* ==============================================================================
+   11. SELECTOR DE VARIOS SERVICIOS
+   ============================================================================== */
+.selector-servicios {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.servicio-opcion {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  background: #FFFFFF;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.servicio-opcion:hover { border-color: var(--inacap-negro); }
+
+.servicio-opcion.marcado {
+  border-color: var(--inacap-rojo);
+  background: #FFF5F6;
+}
+
+.servicio-opcion input { margin-top: 0.25rem; accent-color: var(--inacap-rojo); }
+.servicio-opcion strong { display: block; font-size: 0.88rem; color: var(--inacap-negro); }
+.servicio-opcion small { display: block; font-size: 0.78rem; color: var(--gris-medio); line-height: 1.35; }

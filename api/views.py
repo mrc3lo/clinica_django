@@ -5,6 +5,8 @@ y el manejo de sesiones estándar de Django (request.session).
 """
 
 import json
+import re
+import unicodedata
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -20,7 +22,9 @@ from gestion.models import (
     ItemChecklist, 
     ObservacionOrden, 
     VistoBuenoDocente, 
-    EvaluacionSatisfaccion
+    EvaluacionSatisfaccion,
+    PlantillaChecklist,
+    normalizar_servicios
 )
 
 # Catálogo estándar de checklists según el informe técnico de INACAP
@@ -47,6 +51,88 @@ CATALOGO_CHECKLISTS = {
         ('R-05', 'Comprobación Funcional: Reconocimiento de drivers y activación'),
     ]
 }
+
+
+def obtener_catalogo_checklist(tipo_servicio):
+    """
+    Retorna la lista (codigo, descripcion) de checklist para un tipo de servicio.
+    Usa la plantilla cargada por CSV; si no hay ninguna, usa el catálogo por defecto.
+    """
+    plantilla = PlantillaChecklist.objects.filter(tipo_servicio=tipo_servicio)
+    if plantilla.exists():
+        return [(p.codigo, p.descripcion) for p in plantilla]
+    return CATALOGO_CHECKLISTS.get(tipo_servicio, [])
+
+
+def _sin_tildes_minusculas(texto):
+    texto = unicodedata.normalize('NFD', texto or '')
+    return ''.join(c for c in texto if unicodedata.category(c) != 'Mn').lower()
+
+
+def titular_coincide(propietario, texto):
+    """
+    True si el texto buscado coincide con el titular:
+    - por nombre: todas las palabras escritas aparecen en el nombre (sin importar tildes ni mayúsculas)
+    - por RUT: si el texto tiene algún número, se compara sin puntos ni guion
+    """
+    nombre = _sin_tildes_minusculas(propietario.nombre_completo)
+    palabras = _sin_tildes_minusculas(texto).split()
+    if palabras and all(p in nombre for p in palabras):
+        return True
+    if any(c.isdigit() for c in texto):
+        rut_buscado = re.sub(r'[^0-9kK]', '', texto).lower()
+        rut_titular = re.sub(r'[^0-9kK]', '', propietario.rut).lower()
+        return bool(rut_buscado) and rut_buscado in rut_titular
+    return False
+
+
+def orden_oculta_para_tecnico(usuario, orden):
+    """
+    Un técnico solo ve las órdenes recepcionadas en espera y las que él mismo atiende.
+    Las de otros técnicos (en mantención, pausadas o terminadas) le quedan ocultas.
+    """
+    if not usuario or usuario.rol != 'tecnico':
+        return False
+    if orden.estado == 'Recepcionado':
+        return False
+    return (orden.tecnico_asignado or '').strip().lower() != usuario.nombre_completo.strip().lower()
+
+
+def respuesta_orden_ajena():
+    return JsonResponse({'error': 'Esta orden está asignada a otro técnico.'}, status=403)
+
+
+def obtener_catalogo_para_servicios(servicios):
+    """Junta los checklists de todos los servicios de la orden (sin repetir códigos)."""
+    items, codigos = [], set()
+    for servicio in servicios:
+        for codigo, descripcion in obtener_catalogo_checklist(servicio):
+            if codigo not in codigos:
+                codigos.add(codigo)
+                items.append((codigo, descripcion))
+    return items
+
+
+def sincronizar_checklist(orden):
+    """
+    Ajusta el checklist de una orden cuando cambian sus servicios:
+    agrega los ítems que faltan y quita los que quedaron PENDIENTES y ya no corresponden.
+    Los ítems ya revisados (OK, FALLA, N/A) nunca se borran.
+    """
+    catalogo = obtener_catalogo_para_servicios(orden.servicios)
+    codigos = {codigo for codigo, _ in catalogo}
+    orden.items_checklist.filter(resultado='PENDIENTE').exclude(codigo_item__in=codigos).delete()
+    existentes = set(orden.items_checklist.values_list('codigo_item', flat=True))
+    for codigo, descripcion in catalogo:
+        if codigo not in existentes:
+            ItemChecklist.objects.create(orden=orden, codigo_item=codigo, descripcion=descripcion, resultado='PENDIENTE')
+
+
+def servicios_desde_datos(datos, por_defecto=None):
+    """Lee 'servicios' (lista) o 'tipoServicio' (texto) del JSON recibido."""
+    bruto = datos.get('servicios', datos.get('tipoServicio'))
+    lista = normalizar_servicios(bruto)
+    return lista or (por_defecto if por_defecto is not None else ['Mantención Física'])
 
 
 # ==============================================================================
@@ -204,10 +290,21 @@ def api_listar_o_crear_ordenes(request):
         if filtro_rut:
             queryset = queryset.filter(dispositivo__propietario__rut__icontains=filtro_rut)
         if filtro_servicio:
-            queryset = queryset.filter(tipo_servicio=filtro_servicio)
+            queryset = queryset.filter(tipo_servicio__icontains=filtro_servicio)
 
         queryset = queryset.order_by('-id')
-        return JsonResponse({'ordenes': [orden.a_diccionario_completo() for orden in queryset]})
+        ordenes = list(queryset)
+
+        # Búsqueda libre por nombre o RUT del titular (ignora mayúsculas y tildes)
+        filtro_q = request.GET.get('q', '').strip()
+        if filtro_q:
+            ordenes = [o for o in ordenes if titular_coincide(o.dispositivo.propietario, filtro_q)]
+
+        # El técnico solo ve lo que está en espera y sus propios equipos
+        usuario = obtener_usuario_actual(request)
+        ordenes = [o for o in ordenes if not orden_oculta_para_tecnico(usuario, o)]
+
+        return JsonResponse({'ordenes': [orden.a_diccionario_completo() for orden in ordenes]})
 
     elif request.method == 'POST':
         try:
@@ -255,7 +352,8 @@ def api_listar_o_crear_ordenes(request):
                 )
 
                 estado_inicial = datos.get('estado', 'Preinscrito')
-                tipo_servicio = datos.get('tipoServicio', 'Mantención Física')
+                servicios = servicios_desde_datos(datos)
+                tipo_servicio = ', '.join(servicios)
                 falla = datos.get('fallaReportada', 'Mantención preventiva solicitada')
                 encendido = datos.get('encendidoInicial', None)
                 inspeccion = datos.get('detalleInspeccionPrevia', '')
@@ -272,7 +370,7 @@ def api_listar_o_crear_ordenes(request):
                     tecnico_asignado=tecnico
                 )
 
-                items_plantilla = CATALOGO_CHECKLISTS.get(tipo_servicio, [])
+                items_plantilla = obtener_catalogo_para_servicios(servicios)
                 for codigo, descripcion in items_plantilla:
                     ItemChecklist.objects.create(
                         orden=orden,
@@ -300,12 +398,20 @@ def api_detalle_orden(request, orden_id):
     except OrdenServicio.DoesNotExist:
         return JsonResponse({'error': f'No existe una orden con ID {orden_id}'}, status=404)
 
+    if orden_oculta_para_tecnico(obtener_usuario_actual(request), orden):
+        return respuesta_orden_ajena()
+
     if request.method == 'GET':
         return JsonResponse({'orden': orden.a_diccionario_completo()})
 
     elif request.method in ['PUT', 'POST']:
         try:
             datos = json.loads(request.body)
+            # Una orden solo se recepciona una vez: debe venir desde "Preinscrito"
+            if datos.get('estado') == 'Recepcionado' and orden.estado != 'Preinscrito':
+                return JsonResponse({
+                    'error': f'Esta orden ya fue recepcionada (estado actual: {orden.estado}).'
+                }, status=409)
             if 'estado' in datos:
                 orden.estado = datos['estado']
             if 'tecnicoAsignado' in datos:
@@ -314,14 +420,29 @@ def api_detalle_orden(request, orden_id):
                 orden.encendido_inicial = datos['encendidoInicial']
             if 'detalleInspeccionPrevia' in datos:
                 orden.detalle_inspeccion_previa = datos['detalleInspeccionPrevia']
-            if 'tipoServicio' in datos:
-                orden.tipo_servicio = datos['tipoServicio']
+            servicios_cambiaron = False
+            if 'servicios' in datos or 'tipoServicio' in datos:
+                nuevos = servicios_desde_datos(datos, por_defecto=orden.servicios)
+                servicios_cambiaron = nuevos != orden.servicios
+                orden.tipo_servicio = ', '.join(nuevos)
             if 'fallaReportada' in datos:
                 orden.falla_reportada = datos['fallaReportada']
             if 'llamadaRealizada' in datos:
                 orden.llamada_realizada = datos['llamadaRealizada']
 
+            # Datos del equipo: el número de serie lo registra el técnico en taller;
+            # los accesorios los registra recepción al recibir el equipo.
+            dispositivo = orden.dispositivo
+            if 'numeroSerie' in datos:
+                dispositivo.numero_serie = str(datos['numeroSerie']).strip()[:100]
+            if 'accesorios' in datos:
+                dispositivo.accesorios = str(datos['accesorios']).strip() or 'Sin accesorios'
+            if 'numeroSerie' in datos or 'accesorios' in datos:
+                dispositivo.save()
+
             orden.save()
+            if servicios_cambiaron:
+                sincronizar_checklist(orden)
             return JsonResponse({
                 'mensaje': 'Orden actualizada correctamente',
                 'orden': orden.a_diccionario_completo()
@@ -340,6 +461,9 @@ def api_cambiar_estado_orden(request, orden_id):
 
     try:
         orden = OrdenServicio.objects.get(id=orden_id)
+        usuario = obtener_usuario_actual(request)
+        if orden_oculta_para_tecnico(usuario, orden):
+            return respuesta_orden_ajena()
         datos = json.loads(request.body)
         nuevo_estado = datos.get('estado')
 
@@ -352,6 +476,9 @@ def api_cambiar_estado_orden(request, orden_id):
 
         if 'tecnicoAsignado' in datos:
             orden.tecnico_asignado = datos['tecnicoAsignado']
+        # Si lo hace un técnico, el equipo queda siempre a su nombre (no se puede asignar a otro)
+        if usuario and usuario.rol == 'tecnico':
+            orden.tecnico_asignado = usuario.nombre_completo
 
         orden.save()
 
@@ -377,26 +504,35 @@ def api_actualizar_checklist(request, orden_id):
 
     try:
         orden = OrdenServicio.objects.get(id=orden_id)
+        if orden_oculta_para_tecnico(usuario, orden):
+            return respuesta_orden_ajena()
         datos = json.loads(request.body)
         codigo = datos.get('codigo')
         resultado = datos.get('resultado', 'OK')
         descripcion = datos.get('desc', '')
+        motivo = str(datos.get('motivo', '') or '').strip()
 
         if not codigo:
             return JsonResponse({'error': 'El código del checklist es obligatorio'}, status=400)
+        if resultado not in ('PENDIENTE', 'OK', 'FALLA', 'NO_APLICA'):
+            return JsonResponse({'error': 'Resultado de checklist no válido'}, status=400)
+        # Si un punto de control falla hay que explicar por qué
+        if resultado == 'FALLA' and not motivo:
+            return JsonResponse({'error': 'Debe indicar por qué falló este punto de control.'}, status=400)
 
         item, _ = ItemChecklist.objects.update_or_create(
             orden=orden,
             codigo_item=codigo,
             defaults={
                 'resultado': resultado,
-                'descripcion': descripcion if descripcion else f'Control {codigo}'
+                'descripcion': descripcion if descripcion else f'Control {codigo}',
+                'motivo_falla': motivo if resultado == 'FALLA' else ''
             }
         )
 
         return JsonResponse({
             'mensaje': 'Checklist actualizado',
-            'item': {'codigo': item.codigo_item, 'resultado': item.resultado}
+            'item': {'codigo': item.codigo_item, 'resultado': item.resultado, 'motivo': item.motivo_falla}
         })
     except OrdenServicio.DoesNotExist:
         return JsonResponse({'error': 'Orden no encontrada'}, status=404)
@@ -412,6 +548,8 @@ def api_agregar_observacion(request, orden_id):
 
     try:
         orden = OrdenServicio.objects.get(id=orden_id)
+        if orden_oculta_para_tecnico(obtener_usuario_actual(request), orden):
+            return respuesta_orden_ajena()
         datos = json.loads(request.body)
         texto = datos.get('texto', '').strip()
         autor = datos.get('autor', '').strip() or 'Técnico de Turno'
@@ -559,9 +697,10 @@ def api_obtener_metricas(request):
         promedio_satisfaccion = 5.0
 
     servicios = {
-        'Mantención Física': OrdenServicio.objects.filter(tipo_servicio='Mantención Física').count(),
-        'Mantención Lógica': OrdenServicio.objects.filter(tipo_servicio='Mantención Lógica').count(),
-        'Formateo': OrdenServicio.objects.filter(tipo_servicio='Formateo').count(),
+        # Una orden con varios servicios cuenta una vez en cada uno
+        'Mantención Física': OrdenServicio.objects.filter(tipo_servicio__icontains='Mantención Física').count(),
+        'Mantención Lógica': OrdenServicio.objects.filter(tipo_servicio__icontains='Mantención Lógica').count(),
+        'Formateo': OrdenServicio.objects.filter(tipo_servicio__icontains='Formateo').count(),
     }
 
     return JsonResponse({

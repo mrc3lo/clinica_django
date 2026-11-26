@@ -7,7 +7,17 @@ y nuestra tabla propia 'Usuario', sin depender del sistema auth de Django.
 from functools import wraps
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
+from django.urls import reverse
 from .models import Usuario
+
+# Página de inicio de cada rol (a donde se devuelve a quien entra a una sección que no le corresponde)
+INICIO_POR_ROL = {
+    'admin': 'portal_dashboard',
+    'docente': 'portal_dashboard',
+    'recepcion': 'portal_recepcion',
+    'tecnico': 'portal_taller',
+}
+
 
 def obtener_usuario_actual(request):
     """
@@ -37,7 +47,7 @@ def roles_permitidos(lista_roles):
     1. Si el usuario no ha iniciado sesión, lo redirige al formulario de Login.
     2. Si es 'admin', tiene acceso irrestricto a todo el sistema.
     3. Si su rol coincide con 'lista_roles', permite el acceso.
-    4. De lo contrario, despliega la pantalla institucional de 'Acceso Denegado' (403).
+    4. De lo contrario, lo devuelve automáticamente a su área de trabajo.
     """
     def decorador(vista_func):
         @wraps(vista_func)
@@ -55,14 +65,9 @@ def roles_permitidos(lista_roles):
             if usuario.rol in lista_roles:
                 return vista_func(request, *args, **kwargs)
 
-            # 4. Si no está autorizado, mostramos la pantalla 403 con mensaje claro
-            contexto = {
-                'usuario': usuario,
-                'rol_actual': usuario.rol,
-                'roles_requeridos': lista_roles,
-                'mensaje': 'Tu perfil no tiene los permisos requeridos para acceder a esta sección.'
-            }
-            return render(request, 'acceso_denegado.html', contexto, status=403)
+            # 4. Si no está autorizado, lo devolvemos a su área de trabajo (la página muestra un aviso breve)
+            destino = reverse(INICIO_POR_ROL.get(usuario.rol, 'portal_login'))
+            return redirect(f'{destino}?aviso=sin-acceso')
 
         return envoltorio
     return decorador

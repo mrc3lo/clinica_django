@@ -91,6 +91,8 @@
         <button class="modal-close" onclick="AppUtils.closeModal('modal-entrega')">&times;</button>
       </div>
 
+      <div id="ent-progreso"></div>
+
       <!-- Paso 8: Prueba Conjunta -->
       <div style="background-color: #F9FAFB; border: 1px solid var(--border-card); border-left: 4px solid var(--inacap-negro); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1.25rem;">
         <h4 style="font-size: 0.92rem; color: var(--inacap-negro); font-weight: 800; margin-bottom: 0.35rem;">
@@ -194,7 +196,7 @@
               <td><span class="kanban-code">${o.etiquetaTaller}</span></td>
               <td><strong>${o.dispositivo.tipo} ${o.dispositivo.marca}</strong><br><small style="color:var(--gris-medio);">${o.dispositivo.modelo}</small></td>
               <td>${o.propietario.nombre}<br><small style="color:var(--text-secondary);">${o.propietario.telefono}</small></td>
-              <td><span style="font-weight:700;">${o.tipoServicio}</span></td>
+              <td><span style="font-weight:700;">${AppUtils.textoServicios(o)}</span></td>
               <td>${llamadaTexto}</td>
               <td>${AppUtils.getStatusBadge(o.estado)}</td>
               <td>
@@ -234,7 +236,7 @@
     }
 
     async function registrarLlamada(idOrden, fono) {
-      if (confirm(`¿Confirmar llamada telefónica al número ${fono} para coordinar el retiro?`)) {
+      if (await AppUtils.confirmar(`¿Ya llamaste al número ${fono} para coordinar el retiro?`, { titulo: 'Registrar llamada', textoOk: 'Sí, registrar' })) {
         await ClinicaAPI.marcarLlamada(idOrden, true);
         AppUtils.showToast('Llamada registrada (Paso 07).', 'success');
         cargarTablasEntrega();
@@ -246,6 +248,7 @@
       if (!orden) return;
 
       ordenActivaEntregaId = idOrden;
+      document.getElementById('ent-progreso').innerHTML = AppUtils.renderProgreso(orden.estado);
       document.getElementById('ent-code').textContent = orden.etiquetaTaller;
       document.getElementById('ent-titular-info').textContent = `Titular: ${orden.propietario.nombre} | RUT: ${orden.propietario.rut} | ${orden.dispositivo.tipo} ${orden.dispositivo.marca}`;
       
@@ -305,6 +308,12 @@
         rutTercero: rutTercero
       };
 
+      const seguro = await AppUtils.confirmar(
+        'Se cerrará la orden como "Entregado Conforme" y la encuesta quedará guardada. Esta acción no se puede deshacer desde la pantalla.',
+        { titulo: 'Confirmar entrega', textoOk: 'Entregar equipo' }
+      );
+      if (!seguro) return;
+
       try {
         await ClinicaAPI.registrarEntrega(ordenActivaEntregaId, payload);
         AppUtils.closeModal('modal-entrega');
@@ -324,7 +333,7 @@
         return;
       }
 
-      if (confirm(`¿Desea conmutar ${pendientes.length} equipos no retirados al estado "En Custodia"?`)) {
+      if (await AppUtils.confirmar(`¿Pasar ${pendientes.length} equipo(s) no retirados al estado "En Custodia"?`, { titulo: 'Enviar a custodia', textoOk: 'Pasar a custodia' })) {
         for (const ord of pendientes) {
           await ClinicaAPI.cambiarEstado(ord.idOrden, 'En Custodia');
         }
