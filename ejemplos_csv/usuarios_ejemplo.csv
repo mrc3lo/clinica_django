@@ -1,0 +1,7 @@
+﻿nombre_usuario;nombre_completo;correo;rol;telefono;contrasena
+mgonzalez;Marta González Rojas;mgonzalez@inacap.cl;docente;+56 9 1111 2222;
+rvargas;Rodrigo Vargas Peña;rvargas@inacap.cl;docente;;
+jperez;Juan Pérez Soto;jperez@alumnos.inacap.cl;tecnico;;
+asilva;Ana Silva Mora;asilva@alumnos.inacap.cl;tecnico;;
+cfuentes;Camilo Fuentes Díaz;cfuentes@alumnos.inacap.cl;tecnico;;demo1234
+tecnico1;Usuario que ya existe;;tecnico;;

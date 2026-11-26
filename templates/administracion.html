@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administración — Clínica del PC INACAP</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <style>
+    .tabs-admin { display:flex; gap:0.5rem; margin-bottom:1.25rem; border-bottom:1px solid var(--border-card); }
+    .tab-admin { padding:0.7rem 1.1rem; background:none; border:none; border-bottom:3px solid transparent; font-weight:700; font-size:0.9rem; color:var(--gris-medio); cursor:pointer; }
+    .tab-admin.activa { color:var(--inacap-negro); border-bottom-color:var(--inacap-rojo); }
+    .panel-admin { display:none; }
+    .panel-admin.activo { display:block; }
+    .zona-archivo { border:2px dashed var(--border-card); border-radius:var(--radius-sm); padding:1.5rem; text-align:center; background:#FAFAFB; transition:all .15s; }
+    .zona-archivo.arrastrando { border-color:var(--inacap-rojo); background:#FFF5F6; }
+    .zona-archivo input[type=file] { display:none; }
+    .resumen-carga { display:flex; gap:0.75rem; flex-wrap:wrap; margin:1rem 0; }
+    .chip-resumen { padding:0.45rem 0.85rem; border-radius:999px; font-size:0.82rem; font-weight:700; background:#F4F5F7; }
+    .chip-resumen.nuevo { background:#E7F6EC; color:#166534; }
+    .chip-resumen.omitido { background:#FEF3C7; color:#92400E; }
+    .chip-resumen.error { background:#FDE8EA; color:#B4101F; }
+    .estado-fila { font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:.03em; }
+    .estado-fila.nuevo { color:#166534; } .estado-fila.omitido { color:#92400E; } .estado-fila.error { color:#B4101F; }
+    .ayuda-csv { font-size:0.82rem; color:var(--gris-medio); line-height:1.5; margin:0.75rem 0 1rem; }
+    .ayuda-csv code { background:#F4F5F7; padding:0.1rem 0.35rem; border-radius:4px; }
+    .acciones-carga { display:flex; gap:0.65rem; flex-wrap:wrap; align-items:center; margin-top:1rem; }
+    .cargando-txt { color:var(--gris-medio); font-size:0.85rem; }
+  </style>
+</head>
+<body>
+
+  <div id="nav-placeholder"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <div class="step-indicator">Administración • Carga masiva por CSV</div>
+        <h1 class="page-title">Administración del Sistema</h1>
+        <p class="page-subtitle">Crea docentes y técnicos, y define los checklists de cada servicio, subiendo un archivo CSV. Siempre verás una vista previa antes de guardar.</p>
+      </div>
+    </div>
+
+    <div class="tabs-admin">
+      <button class="tab-admin activa" data-panel="panel-usuarios">Usuarios (docentes y técnicos)</button>
+      <button class="tab-admin" data-panel="panel-checklists">Checklists</button>
+    </div>
+
+    <!-- ===================== USUARIOS ===================== -->
+    <section class="panel-admin activo" id="panel-usuarios">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Cargar usuarios desde CSV</h2>
+          <a href="/api/admin/plantilla-usuarios/" class="btn btn-outline btn-sm">Descargar plantilla CSV</a>
+        </div>
+        <p class="ayuda-csv">
+          Columnas: <code>nombre_usuario</code> <code>nombre_completo</code> <code>correo</code> <code>rol</code> <code>telefono</code> <code>contrasena</code>.<br>
+          El <strong>rol</strong> puede ser <code>docente</code> o <code>tecnico</code>. Si dejas la contraseña vacía se genera una clave inicial aleatoria.
+          Los usuarios que ya existen se omiten.
+        </p>
+        <div class="zona-archivo" id="zona-usuarios">
+          <p style="margin-bottom:0.75rem;" id="nombre-archivo-usuarios">Arrastra tu archivo CSV aquí o</p>
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer;">Elegir archivo
+            <input type="file" id="archivo-usuarios" accept=".csv,text/csv">
+          </label>
+        </div>
+        <div id="resultado-usuarios"></div>
+      </div>
+
+      <div class="card" style="margin-top:1.5rem;">
+        <div class="card-header">
+          <h2 class="card-title">Usuarios registrados</h2>
+          <span id="total-usuarios" style="font-size:0.8rem; color:var(--gris-medio); font-weight:600;"></span>
+        </div>
+        <div class="table-responsive">
+          <table class="table">
+            <thead><tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Rol</th></tr></thead>
+            <tbody id="tbody-usuarios"><tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--gris-medio);">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== CHECKLISTS ===================== -->
+    <section class="panel-admin" id="panel-checklists">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Cargar checklists desde CSV</h2>
+          <a href="/api/admin/plantilla-checklists/" class="btn btn-outline btn-sm">Descargar plantilla CSV</a>
+        </div>
+        <p class="ayuda-csv">
+          Columnas: <code>tipo_servicio</code> <code>codigo</code> <code>descripcion</code>.<br>
+          El servicio puede ser <code>Mantención Física</code>, <code>Mantención Lógica</code> o <code>Formateo</code>.
+          Al confirmar, la lista de cada servicio incluido en el archivo <strong>reemplaza</strong> a la anterior y se usa en las <strong>órdenes nuevas</strong>.
+          Las órdenes que ya existen conservan sus checklists. La plantilla descargable ya trae la lista vigente para que la edites.
+        </p>
+        <div class="zona-archivo" id="zona-checklists">
+          <p style="margin-bottom:0.75rem;" id="nombre-archivo-checklists">Arrastra tu archivo CSV aquí o</p>
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer;">Elegir archivo
+            <input type="file" id="archivo-checklists" accept=".csv,text/csv">
+          </label>
+        </div>
+        <div id="resultado-checklists"></div>
+      </div>
+
+      <div class="card" style="margin-top:1.5rem;">
+        <div class="card-header"><h2 class="card-title">Plantillas vigentes</h2></div>
+        <div id="plantillas-vigentes" class="cargando-txt">Cargando...</div>
+      </div>
+    </section>
+  </main>
+
+  <div id="footer-placeholder"></div>
+
+  <script src="/static/js/api_cliente.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script>
+    document.getElementById('nav-placeholder').innerHTML = AppUtils.renderHeader('adm');
+    document.getElementById('footer-placeholder').innerHTML = AppUtils.renderFooter();
+
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    // ---- Pestañas ----
+    document.querySelectorAll('.tab-admin').forEach(btn => btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-admin').forEach(b => b.classList.remove('activa'));
+      document.querySelectorAll('.panel-admin').forEach(p => p.classList.remove('activo'));
+      btn.classList.add('activa');
+      document.getElementById(btn.dataset.panel).classList.add('activo');
+    }));
+
+    // ---- Carga genérica: elegir archivo -> vista previa -> confirmar ----
+    function configurarCarga({ tipo, urlImportar, columnas, alTerminar, extraResultado }) {
+      const input = document.getElementById('archivo-' + tipo);
+      const zona = document.getElementById('zona-' + tipo);
+      const etiqueta = document.getElementById('nombre-archivo-' + tipo);
+      const salida = document.getElementById('resultado-' + tipo);
+      let archivo = null;
+
+      async function enviar(confirmar) {
+        const datos = new FormData();
+        datos.append('archivo', archivo);
+        datos.append('confirmar', confirmar ? '1' : '0');
+        salida.innerHTML = '<p class="cargando-txt" style="margin-top:1rem;">Procesando archivo...</p>';
+        try {
+          const r = await fetch(urlImportar, { method: 'POST', body: datos });
+          const json = await r.json();
+          if (!r.ok) {
+            salida.innerHTML = `<p style="margin-top:1rem; color:#B4101F; font-weight:700;">${esc(json.error || 'No se pudo procesar el archivo.')}</p>`;
+            return;
+          }
+          dibujar(json);
+          if (json.confirmado) {
+            const r = json.resumen;
+            AppUtils.showToast(`Carga lista: ${r.nuevo} nuevos, ${r.omitido} omitidos, ${r.error} con error.`, r.error ? 'warning' : 'success');
+            alTerminar();
+          }
+        } catch (e) {
+          salida.innerHTML = '<p style="margin-top:1rem; color:#B4101F; font-weight:700;">Error de conexión con el servidor.</p>';
+        }
+      }
+
+      function dibujar(json) {
+        const r = json.resumen;
+        const verbo = json.confirmado ? ['creados', 'omitidos', 'con error'] : ['por crear', 'por omitir', 'con error'];
+        const textoNuevo = tipo === 'checklists' ? (json.confirmado ? 'cargados' : 'por cargar') : verbo[0];
+        const filas = json.filas.map(f => `
+          <tr>
+            <td>${f.fila}</td>
+            ${columnas.map(c => `<td>${esc(f[c])}</td>`).join('')}
+            <td><span class="estado-fila ${f.estado}">${f.estado === 'nuevo' ? (json.confirmado ? 'Listo' : 'Nuevo') : f.estado === 'omitido' ? 'Omitido' : 'Error'}</span><br><small style="color:var(--gris-medio);">${esc(f.motivo)}</small></td>
+          </tr>`).join('');
+
+        const boton = json.confirmado ? '' : (r.nuevo > 0
+          ? `<button class="btn btn-primary btn-sm" id="btn-confirmar-${tipo}">Confirmar carga de ${r.nuevo} fila(s)</button>`
+          : `<span class="cargando-txt">No hay filas válidas para cargar. Corrige el archivo y vuelve a subirlo.</span>`);
+
+        salida.innerHTML = `
+          <div class="resumen-carga">
+            <span class="chip-resumen nuevo">${r.nuevo} ${textoNuevo}</span>
+            <span class="chip-resumen omitido">${r.omitido} ${verbo[1]}</span>
+            <span class="chip-resumen error">${r.error} ${verbo[2]}</span>
+          </div>
+          ${json.confirmado ? '' : '<p class="cargando-txt">Vista previa: todavía no se guardó nada.</p>'}
+          <div class="table-responsive" style="max-height:340px; overflow:auto; margin-top:0.5rem;">
+            <table class="table">
+              <thead><tr><th>Fila</th>${columnas.map(c => `<th>${c.replace('_', ' ')}</th>`).join('')}<th>Resultado</th></tr></thead>
+              <tbody>${filas}</tbody>
+            </table>
+          </div>
+          <div class="acciones-carga">${boton}${json.confirmado && extraResultado ? extraResultado(json) : ''}</div>`;
+
+        const btn = document.getElementById('btn-confirmar-' + tipo);
+        if (btn) btn.addEventListener('click', () => {
+          btn.disabled = true; btn.textContent = 'Guardando...';
+          enviar(true);
+        });
+      }
+
+      function tomarArchivo(f) {
+        if (!f) return;
+        if (!/\.csv$/i.test(f.name)) { AppUtils.showToast('El archivo debe ser .csv', 'danger'); return; }
+        archivo = f;
+        etiqueta.innerHTML = `Archivo: <strong>${esc(f.name)}</strong> — elige otro para cambiarlo`;
+        enviar(false);
+      }
+
+      input.addEventListener('change', () => { tomarArchivo(input.files[0]); input.value = ''; });
+      ['dragenter', 'dragover'].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.add('arrastrando'); }));
+      ['dragleave', 'drop'].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.remove('arrastrando'); }));
+      zona.addEventListener('drop', e => tomarArchivo(e.dataTransfer.files[0]));
+    }
+
+    // ---- Usuarios ----
+    function descargarClaves(json) {
+      const nuevos = json.filas.filter(f => f.clave_inicial);
+      if (!nuevos.length) return;
+      const lineas = ['nombre_usuario;nombre_completo;rol;clave_inicial']
+        .concat(nuevos.map(f => [f.nombre_usuario, f.nombre_completo, f.rol, f.clave_inicial].join(';')));
+      const blob = new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'claves_iniciales.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    window.__ultimoResultadoUsuarios = null;
+
+    configurarCarga({
+      tipo: 'usuarios',
+      urlImportar: '/api/admin/usuarios/importar/',
+      columnas: ['nombre_usuario', 'nombre_completo', 'rol', 'correo'],
+      alTerminar: cargarUsuarios,
+      extraResultado: json => {
+        window.__ultimoResultadoUsuarios = json;
+        return json.filas.some(f => f.clave_inicial)
+          ? '<button class="btn btn-secondary btn-sm" onclick="descargarClaves(window.__ultimoResultadoUsuarios)">Descargar claves iniciales (CSV)</button><span class="cargando-txt">Guarda este archivo: las claves no se vuelven a mostrar.</span>'
+          : '';
+      }
+    });
+
+    async function cargarUsuarios() {
+      const tbody = document.getElementById('tbody-usuarios');
+      try {
+        const r = await fetch('/api/admin/usuarios/');
+        const json = await r.json();
+        document.getElementById('total-usuarios').textContent = json.usuarios.length + ' usuarios';
+        tbody.innerHTML = json.usuarios.map(u => `
+          <tr><td><span class="kanban-code">${esc(u.nombre_usuario)}</span></td><td>${esc(u.nombre_completo)}</td>
+          <td>${esc(u.correo) || '<em style="color:var(--gris-medio);">—</em>'}</td><td>${esc(u.rol_legible)}</td></tr>`).join('');
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#B4101F;">No se pudo cargar la lista.</td></tr>';
+      }
+    }
+
+    // ---- Checklists ----
+    configurarCarga({
+      tipo: 'checklists',
+      urlImportar: '/api/admin/checklists/importar/',
+      columnas: ['tipo_servicio', 'codigo', 'descripcion'],
+      alTerminar: cargarPlantillas
+    });
+
+    async function cargarPlantillas() {
+      const cont = document.getElementById('plantillas-vigentes');
+      try {
+        const r = await fetch('/api/admin/checklists/');
+        const json = await r.json();
+        cont.className = '';
+        cont.innerHTML = json.plantillas.map(p => `
+          <div style="margin-bottom:1.25rem;">
+            <h3 style="font-size:1rem; font-weight:800; margin-bottom:0.4rem;">${esc(p.tipo_servicio)}
+              <span class="badge ${p.origen === 'CSV' ? 'badge-listo' : 'badge-custodia'}" style="margin-left:0.4rem;">${p.origen === 'CSV' ? 'Cargada por CSV' : 'Por defecto'}</span></h3>
+            <ol style="padding-left:1.25rem; font-size:0.85rem; line-height:1.6; color:var(--text-main);">
+              ${p.items.map(i => `<li><span class="kanban-code">${esc(i.codigo)}</span> ${esc(i.descripcion)}</li>`).join('')}
+            </ol>
+          </div>`).join('');
+      } catch (e) {
+        cont.textContent = 'No se pudo cargar las plantillas.';
+      }
+    }
+
+    cargarUsuarios();
+    cargarPlantillas();
+  </script>
+</body>
+</html>

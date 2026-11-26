@@ -10,6 +10,12 @@ from autenticacion.models import Usuario
 from gestion.models import Propietario, Dispositivo, OrdenServicio
 
 class PruebasControlAccesoYRoles(TestCase):
+    def assertSinAcceso(self, ruta):
+        """Una sección no autorizada devuelve al usuario a su área de trabajo (ya no muestra pantalla 403)."""
+        resp = self.cliente.get(ruta)
+        self.assertEqual(resp.status_code, 302, ruta)
+        self.assertIn('aviso=sin-acceso', resp.url, ruta)
+
     def setUp(self):
         """Creamos 4 usuarios de prueba en nuestra tabla propia 'Usuario'"""
         self.cliente = Client()
@@ -92,10 +98,10 @@ class PruebasControlAccesoYRoles(TestCase):
         self.assertEqual(resp_pre.url, '/taller/')
 
         # Acceso denegado a otros módulos (403):
-        self.assertEqual(self.cliente.get('/recepcion/').status_code, 403)
-        self.assertEqual(self.cliente.get('/control-calidad/').status_code, 403)
-        self.assertEqual(self.cliente.get('/entrega/').status_code, 403)
-        self.assertEqual(self.cliente.get('/metricas/').status_code, 403)
+        self.assertSinAcceso('/recepcion/')
+        self.assertSinAcceso('/control-calidad/')
+        self.assertSinAcceso('/entrega/')
+        self.assertSinAcceso('/metricas/')
 
     def test_03_recepcion_acceso_restringido(self):
         """
@@ -115,14 +121,14 @@ class PruebasControlAccesoYRoles(TestCase):
         self.assertEqual(resp_panel.url, '/recepcion/')
 
         # Acceso denegado (403):
-        self.assertEqual(self.cliente.get('/taller/').status_code, 403)
-        self.assertEqual(self.cliente.get('/control-calidad/').status_code, 403)
-        self.assertEqual(self.cliente.get('/metricas/').status_code, 403)
+        self.assertSinAcceso('/taller/')
+        self.assertSinAcceso('/control-calidad/')
+        self.assertSinAcceso('/metricas/')
 
     def test_04_docente_acceso_restringido(self):
         """
-        El Docente Supervisor accede al Panel Principal, Calidad, Métricas y Taller.
-        No tiene por qué acceder al Mesón de Entrada ni a Entrega de Equipos.
+        El Docente Supervisor accede solo al Panel Principal, Calidad y Métricas.
+        No accede a Pre-inscripción, Mesón, Taller ni Entrega.
         """
         self.iniciar_sesion(self.u_docente)
 
@@ -130,11 +136,14 @@ class PruebasControlAccesoYRoles(TestCase):
         self.assertEqual(self.cliente.get('/').status_code, 200)
         self.assertEqual(self.cliente.get('/control-calidad/').status_code, 200)
         self.assertEqual(self.cliente.get('/metricas/').status_code, 200)
-        self.assertEqual(self.cliente.get('/taller/').status_code, 200)
 
-        # Acceso denegado (403):
-        self.assertEqual(self.cliente.get('/recepcion/').status_code, 403)
-        self.assertEqual(self.cliente.get('/entrega/').status_code, 403)
+        # Se le devuelve a su panel en las demás secciones:
+        self.assertSinAcceso('/taller/')
+        self.assertSinAcceso('/recepcion/')
+        self.assertSinAcceso('/entrega/')
+        resp_pre = self.cliente.get('/preinscripcion/')
+        self.assertEqual(resp_pre.status_code, 302)
+        self.assertEqual(resp_pre.url, '/')
 
     def test_05_api_seguridad_visto_bueno(self):
         """Un técnico NO puede firmar el visto bueno en la API; el docente SÍ"""

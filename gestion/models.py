@@ -25,6 +25,20 @@ TIPOS_SERVICIO = [
     ('Formateo', 'Formateo e Instalación de Sistema Operativo'),
 ]
 
+SERVICIOS_VALIDOS = [clave for clave, _ in TIPOS_SERVICIO]
+
+
+def normalizar_servicios(valor):
+    """
+    Recibe una lista (['Formateo', 'Mantención Física']) o un texto separado por comas
+    y devuelve la lista de servicios válidos, sin repetir y en el orden del catálogo.
+    """
+    if isinstance(valor, str):
+        valor = [v.strip() for v in valor.split(',')]
+    valor = set(valor or [])
+    return [s for s in SERVICIOS_VALIDOS if s in valor]
+
+
 # Tipos de dispositivos soportados
 TIPOS_DISPOSITIVO = [
     ('Notebook', 'Notebook / Laptop'),
@@ -127,17 +141,18 @@ class OrdenServicio(models.Model):
         default='Preinscrito', 
         verbose_name="Estado Operativo"
     )
+    # Una orden puede tener varios servicios: se guardan separados por coma
+    # (ej: "Mantención Física, Formateo"). Use la propiedad 'servicios' para obtenerlos como lista.
     tipo_servicio = models.CharField(
-        max_length=50, 
-        choices=TIPOS_SERVICIO, 
+        max_length=150,
         default='Mantención Física',
-        verbose_name="Tipo de Servicio"
+        verbose_name="Servicios Solicitados"
     )
     falla_reportada = models.TextField(verbose_name="Falla o Síntoma Reportado por el Titular")
     encendido_inicial = models.BooleanField(
         null=True, 
         blank=True, 
-        verbose_name="Comprobación de Encendido en Mesón"
+        verbose_name="Comprobación de Encendido (la realiza el técnico en taller)"
     )
     detalle_inspeccion_previa = models.TextField(
         blank=True, 
@@ -157,6 +172,11 @@ class OrdenServicio(models.Model):
     def __str__(self):
         return f"Orden #{self.id} — {self.etiqueta_taller} ({self.estado})"
 
+    @property
+    def servicios(self):
+        """Lista de servicios de la orden (ej: ['Mantención Física', 'Formateo'])."""
+        return normalizar_servicios(self.tipo_servicio)
+
     def a_diccionario_completo(self):
         """
         Retorna la orden con todos sus detalles relacionados (titular, equipo, checklist,
@@ -164,10 +184,11 @@ class OrdenServicio(models.Model):
         """
         # Obtenemos los checklists en un diccionario indexado por código (ej: F-01)
         checklists_dict = {}
-        for item in self.items_checklist.all():
+        for item in self.items_checklist.order_by('id'):
             checklists_dict[item.codigo_item] = {
                 'desc': item.descripcion,
-                'res': item.resultado
+                'res': item.resultado,
+                'motivo': item.motivo_falla,
             }
 
         # Obtenemos la lista de observaciones
@@ -212,7 +233,8 @@ class OrdenServicio(models.Model):
             'etiquetaTaller': self.etiqueta_taller,
             'estado': self.estado,
             'tecnicoAsignado': self.tecnico_asignado,
-            'tipoServicio': self.tipo_servicio,
+            'tipoServicio': ', '.join(self.servicios) or self.tipo_servicio,
+            'servicios': self.servicios,
             'fallaReportada': self.falla_reportada,
             'encendidoInicial': self.encendido_inicial,
             'detalleInspeccionPrevia': self.detalle_inspeccion_previa,
@@ -258,12 +280,33 @@ class ItemChecklist(models.Model):
         default='PENDIENTE',
         verbose_name="Resultado del Control"
     )
+    # Obligatorio cuando el resultado es FALLA: explica por qué falló el punto de control
+    motivo_falla = models.TextField(blank=True, default='', verbose_name="Motivo de la falla")
 
     class Meta:
         unique_together = ('orden', 'codigo_item')
 
     def __str__(self):
         return f"{self.codigo_item} - {self.descripcion}: {self.resultado}"
+
+
+class PlantillaChecklist(models.Model):
+    """
+    Ítem de la plantilla de checklist de un tipo de servicio.
+    Se carga por CSV desde Administración y se copia a cada orden nueva.
+    Si no hay plantilla cargada para un servicio, se usa el catálogo por defecto.
+    """
+    tipo_servicio = models.CharField(max_length=50, choices=TIPOS_SERVICIO, verbose_name="Tipo de Servicio")
+    codigo = models.CharField(max_length=20, verbose_name="Código (ej: F-01)")
+    descripcion = models.CharField(max_length=250, verbose_name="Descripción de la Tarea")
+    posicion = models.PositiveIntegerField(default=0, verbose_name="Posición en la lista")
+
+    class Meta:
+        unique_together = ('tipo_servicio', 'codigo')
+        ordering = ['tipo_servicio', 'posicion', 'id']
+
+    def __str__(self):
+        return f"{self.tipo_servicio}: {self.codigo} - {self.descripcion}"
 
 
 class ObservacionOrden(models.Model):

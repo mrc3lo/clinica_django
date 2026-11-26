@@ -32,18 +32,22 @@ def vista_preinscripcion(request):
     """
     Página pública de pre-inscripción vía código QR para los propietarios.
     No requiere login para que cualquier usuario de la comunidad pueda registrarse.
-    Si entra un técnico o recepcionista logueado, lo envía a su área de trabajo.
+    Si entra un técnico o docente logueado, lo envía a su área de trabajo.
+    El Mesón de Recepción y el Administrador pueden usarla como "Registro Express" (sin QR).
     """
     usuario = obtener_usuario_actual(request)
+    modo_express = False
     if usuario:
         if usuario.rol == 'tecnico':
             return redirect('portal_taller')
-        elif usuario.rol == 'recepcion':
-            return redirect('portal_recepcion')
-        elif usuario.rol in ['docente', 'admin']:
+        elif usuario.rol == 'docente':
             return redirect('portal_dashboard')
+        modo_express = usuario.rol in ['recepcion', 'admin']
 
-    return render(request, 'preinscripcion.html', {'modulo_activo': 'preinscripcion'})
+    return render(request, 'preinscripcion.html', {
+        'modulo_activo': 'preinscripcion',
+        'modo_express': modo_express,
+    })
 
 
 def vista_dashboard(request):
@@ -81,11 +85,11 @@ def vista_recepcion(request):
     return render(request, 'recepcion.html', {'modulo_activo': 'recepcion'})
 
 
-@roles_permitidos(['tecnico', 'docente', 'admin'])
+@roles_permitidos(['tecnico', 'admin'])
 def vista_taller(request):
     """
-    Módulo 4-5: Taller Técnico (Tablero Kanban y Checklists).
-    Reservado para: Alumno Técnico, Docente Supervisor y Administrador.
+    Módulo 3-5: Taller Técnico (Tablero Kanban y Checklists).
+    Reservado para: Alumno Técnico y Administrador.
     """
     return render(request, 'taller.html', {'modulo_activo': 'taller'})
 
@@ -106,6 +110,24 @@ def vista_entrega(request):
     Reservado para: Mesón de Recepción y Administrador.
     """
     return render(request, 'entrega.html', {'modulo_activo': 'entrega'})
+
+
+@roles_permitidos(['docente', 'admin'])
+def vista_estudiantes(request):
+    """
+    Supervisión docente: equipos atendidos por cada estudiante técnico y su bitácora.
+    Reservado para: Docente Supervisor y Administrador.
+    """
+    return render(request, 'estudiantes.html', {'modulo_activo': 'estudiantes'})
+
+
+@roles_permitidos(['admin'])
+def vista_administracion(request):
+    """
+    Administración: carga masiva de usuarios (docentes y técnicos) y de checklists por CSV.
+    Reservado exclusivamente para el Administrador.
+    """
+    return render(request, 'administracion.html', {'modulo_activo': 'administracion'})
 
 
 @roles_permitidos(['docente', 'admin'])

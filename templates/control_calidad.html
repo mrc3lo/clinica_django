@@ -65,6 +65,8 @@
           <button class="modal-close" onclick="AppUtils.closeModal('modal-qc')">&times;</button>
         </div>
 
+        <div id="qc-progreso"></div>
+
         <!-- Resumen Checklist Realizado -->
         <div class="card" style="padding: 1rem; margin-bottom: 1rem; border-color: var(--border-card);">
           <h4 style="font-size: 0.9rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.5rem;">Checklist Técnico Ejecutado</h4>
@@ -75,7 +77,7 @@
 
         <!-- Observaciones de Taller -->
         <div class="card" style="padding: 1rem; margin-bottom: 1rem; border-color: var(--border-card);">
-          <h4 style="font-size: 0.9rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.5rem;">Bitácora de Observaciones y Anomalías</h4>
+          <h4 style="font-size: 0.9rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.5rem;">Bitácora de la Intervención (resumen)</h4>
           <div id="qc-obs-summary" style="font-size: 0.85rem;">
             <!-- Dinámico -->
           </div>
@@ -145,9 +147,9 @@
           tr.innerHTML = `
             <td><span class="kanban-code">${o.etiquetaTaller}</span></td>
             <td><strong>${o.dispositivo.tipo} ${o.dispositivo.marca}</strong> <span style="color:var(--gris-medio);">${o.dispositivo.modelo}</span></td>
-            <td><span style="font-weight:700;">${o.tipoServicio}</span></td>
+            <td><span style="font-weight:700;">${AppUtils.textoServicios(o)}</span></td>
             <td>${o.tecnicoAsignado || '<em style="color:var(--inacap-rojo);">Sin asignar</em>'}</td>
-            <td>${o.encendidoInicial ? 'Conforme' : 'No enciende'}</td>
+            <td>${AppUtils.textoEncendido(o.encendidoInicial)}</td>
             <td>${AppUtils.getStatusBadge(o.estado)}</td>
             <td>
               <button class="btn ${tieneVB ? 'btn-outline' : 'btn-primary'} btn-sm" onclick="abrirAuditoria(${o.idOrden})">
@@ -167,6 +169,7 @@
       if (!orden) return;
       ordenSeleccionadaQC = orden;
 
+      document.getElementById('qc-progreso').innerHTML = AppUtils.renderProgreso(orden.estado, orden.vistoBuenoDocente ? undefined : 3);
       document.getElementById('qc-code').textContent = orden.etiquetaTaller;
       document.getElementById('qc-disp-info').textContent = `${orden.dispositivo.tipo} ${orden.dispositivo.marca} ${orden.dispositivo.modelo} | Técnico: ${orden.tecnicoAsignado || 'Sin asignar'}`;
 
@@ -182,24 +185,13 @@
           const item = checks[k];
           const row = document.createElement('div');
           row.style.cssText = 'display:flex; justify-content:space-between; border-bottom:1px solid #F3F4F6; padding:0.3rem 0;';
-          row.innerHTML = `<span><strong>${k}:</strong> ${item.desc}</span> <span class="badge ${item.res === 'OK' ? 'badge-listo' : 'badge-taller'}">${item.res}</span>`;
+          const motivo = item.res === 'FALLA' ? `<br><small style="color:var(--inacap-rojo);">Motivo: ${AppUtils.escapar(item.motivo || 'Sin motivo registrado')}</small>` : '';
+          row.innerHTML = `<span><strong>${k}:</strong> ${AppUtils.escapar(item.desc)}${motivo}</span> <span class="badge ${item.res === 'OK' ? 'badge-listo' : 'badge-taller'}">${item.res}</span>`;
           chkContainer.appendChild(row);
         });
       }
 
-      const obsContainer = document.getElementById('qc-obs-summary');
-      obsContainer.innerHTML = '';
-      const obs = orden.observaciones || [];
-      if (obs.length === 0) {
-        obsContainer.innerHTML = '<div style="color:var(--gris-claro);">Sin anomalías registradas.</div>';
-      } else {
-        obs.forEach(o => {
-          const div = document.createElement('div');
-          div.style.cssText = 'margin-bottom:0.35rem;';
-          div.innerHTML = `<strong>${o.autor} [${o.criticidad}]:</strong> ${o.texto}`;
-          obsContainer.appendChild(div);
-        });
-      }
+      document.getElementById('qc-obs-summary').innerHTML = AppUtils.renderResumenBitacora(orden);
 
       if (orden.vistoBuenoDocente) {
         document.getElementById('qc-docente-nombre').value = orden.vistoBuenoDocente.docente;
@@ -220,6 +212,12 @@
         AppUtils.showToast('Debe confirmar la certificación.', 'warning');
         return;
       }
+
+      const confirmado = await AppUtils.confirmar(
+        `Vas a firmar el V°B° del equipo ${ordenSeleccionadaQC.etiquetaTaller}. Quedará habilitado para retiro y la firma queda registrada a nombre de ${docente || 'el docente'}.`,
+        { titulo: 'Firmar Visto Bueno', textoOk: 'Firmar V°B°' }
+      );
+      if (!confirmado) return;
 
       try {
         await ClinicaAPI.guardarVistoBueno(ordenSeleccionadaQC.idOrden, docente, comentario);

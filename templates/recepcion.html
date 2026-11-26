@@ -14,24 +14,26 @@
   <main class="main-content">
     <div class="page-header">
       <div>
-        <div class="step-indicator">Pasos 02 y 03 • Servicio al Cliente</div>
+        <div class="step-indicator">Paso 02 • Servicio al Cliente</div>
         <h1 class="page-title">Mesón de Recepción y Constatación Inicial</h1>
-        <p class="page-subtitle">Búsqueda por RUT, constatación obligatoria de encendido inicial y emisión de rótulo físico correlativo.</p>
+        <p class="page-subtitle">Búsqueda por nombre o RUT del titular, inspección visual del equipo y emisión de rótulo físico correlativo. El encendido lo verifica el técnico en taller.</p>
       </div>
       <div>
         <button class="btn btn-outline btn-sm" onclick="abrirRegistroManualExpress()">+ Registro Express (Sin QR)</button>
       </div>
     </div>
 
-    <!-- Buscador por RUT -->
+    <!-- Buscador por nombre o RUT -->
     <div class="card" style="padding: 1.25rem;">
       <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 250px;">
-          <label class="form-label required">Buscar Pre-inscripción por RUT del Titular:</label>
+          <label class="form-label required">Buscar por nombre o RUT del Titular:</label>
           <div style="display: flex; gap: 0.5rem;">
-            <input type="text" id="search-rut" class="form-control" placeholder="Ej: 18.452.910-3" onkeyup="if(event.key==='Enter') buscarPorRut()">
-            <button class="btn btn-secondary" onclick="buscarPorRut()">Buscar</button>
+            <input type="search" id="search-q" class="form-control" placeholder="Ej: Carlos Vega  o  18.452.910-3" autocomplete="off"
+                   oninput="buscarConRetraso()" onkeyup="if(event.key==='Enter') { clearTimeout(temporizadorBusqueda); buscarTitular(); }">
+            <button class="btn btn-secondary" onclick="buscarTitular()">Buscar</button>
           </div>
+          <div class="form-help">Escribe parte del nombre (sin importar tildes ni mayúsculas) o el RUT. Los resultados aparecen mientras escribes.</div>
         </div>
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
           <button class="btn btn-outline btn-sm" onclick="cargarPreinscritosPendientes()">Ver Pendientes de Ingreso</button>
@@ -47,14 +49,9 @@
           <span class="badge" id="count-badge">0 encontrados</span>
         </div>
 
-        <div id="owner-info" style="display:none; background-color: #F9FAFB; border: 1px solid var(--border-card); border-left: 3px solid var(--inacap-negro); border-radius: 4px; padding: 0.85rem 1rem; margin-bottom: 1rem;">
-          <h4 id="owner-name" style="color: var(--inacap-negro); margin-bottom: 0.2rem; font-weight: 800;">-</h4>
-          <div id="owner-contact" style="font-size: 0.84rem; color: var(--gris-medio);">-</div>
-        </div>
-
         <div id="devices-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
           <div style="text-align: center; color: var(--gris-claro); padding: 2rem;">
-            Ingrese un RUT para desplegar los dispositivos o seleccione uno del listado inferior.
+            Escriba un nombre o RUT para ver los equipos, o seleccione uno del listado inferior.
           </div>
         </div>
 
@@ -68,10 +65,10 @@
         </div>
       </div>
 
-      <!-- Columna Derecha: Formulario de Recepción y Paso 3 (Encendido) -->
+      <!-- Columna Derecha: Formulario de Recepción -->
       <div class="card" id="reception-form-card">
         <div class="card-header">
-          <h2 class="card-title">Ficha de Admisión y Prueba de Encendido</h2>
+          <h2 class="card-title">Ficha de Admisión del Equipo</h2>
           <span id="active-device-code" class="kanban-code" style="display:none;">CLI-PC-2026-XXXX</span>
         </div>
 
@@ -79,57 +76,22 @@
           <input type="hidden" id="selected-orden-id">
 
           <div style="background:#F9FAFB; border:1px solid var(--border-card); padding:1rem; border-radius:var(--radius-sm); color:var(--gris-medio); font-size:0.85rem;" id="no-device-alert">
-            Seleccione un equipo de la lista izquierda para completar la recepción técnica y la comprobación de encendido.
+            Seleccione un equipo de la lista izquierda para completar su recepción.
           </div>
 
-          <div id="reception-fields" style="display: none;">
-            <div class="grid-2">
-              <div class="form-group">
-                <label class="form-label required">Servicio Asignado</label>
-                <select id="rec-servicio" class="form-control" required>
-                  <option value="Mantención Física">Mantención Física</option>
-                  <option value="Mantención Lógica">Mantención Lógica</option>
-                  <option value="Formateo">Formateo e Instalación de SO</option>
-                </select>
-              </div>
+          <!-- Ficha de solo lectura: equipos que ya fueron recepcionados no se pueden recepcionar otra vez -->
+          <div id="ficha-solo-lectura" style="display: none;"></div>
 
-              <div class="form-group">
-                <label class="form-label required">Número de Serie (Chasis o BIOS)</label>
-                <input type="text" id="rec-serie" class="form-control" placeholder="Ej: 5CD1234XYZ" required>
-                <div class="form-help">Si está borrado por desgaste, revisar en BIOS/UEFI.</div>
-              </div>
+          <div id="reception-fields" style="display: none;">
+            <div class="form-group">
+              <label class="form-label required">Servicios Asignados</label>
+              <div id="rec-servicio"></div>
+              <div class="form-help">El número de serie lo registra el técnico en taller.</div>
             </div>
 
             <div class="form-group">
               <label class="form-label required">Accesorios Físicos Recibidos</label>
               <input type="text" id="rec-accesorios" class="form-control" placeholder="Ej: Cargador original Lenovo 65W, cable de poder, bolso negro" required>
-            </div>
-
-            <!-- Paso 3: Demostración y Prueba de Encendido -->
-            <div style="background-color: #F9FAFB; border: 1px solid var(--border-card); border-left: 4px solid var(--inacap-negro); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1.25rem;">
-              <h3 style="font-size: 0.92rem; font-weight: 800; color: var(--inacap-negro); margin-bottom: 0.35rem;">
-                Paso 03 • Demostración Presencial de Encendido Inicial
-              </h3>
-              <p style="font-size: 0.8rem; color: var(--gris-medio); margin-bottom: 0.75rem;">
-                El recepcionista debe presenciar el encendido del computador junto al propietario antes de ingresarlo a taller.
-              </p>
-
-              <div class="form-group" style="margin-bottom: 0.5rem;">
-                <label class="form-label required">¿El equipo enciende en el mesón?</label>
-                <div style="display: flex; gap: 1.5rem;">
-                  <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: 600;">
-                    <input type="radio" name="encendido" value="true" checked onchange="toggleEncendidoWarning(true)"> Sí, enciende normalmente
-                  </label>
-                  <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: 600; color: var(--inacap-rojo);">
-                    <input type="radio" name="encendido" value="false" onchange="toggleEncendidoWarning(false)"> No enciende / Falla de energía
-                  </label>
-                </div>
-              </div>
-
-              <!-- Alerta de no encendido -->
-              <div id="no-enciende-warning" style="display: none; background-color: #FFF5F5; border: 1px solid var(--inacap-rojo-borde); border-radius: 4px; padding: 0.65rem 0.85rem; font-size: 0.8rem; color: var(--inacap-rojo); margin-top: 0.5rem;">
-                <strong>Cláusula de Protección:</strong> El equipo ingresa sin encender. Se informa al titular que el taller no se hace responsable por fallas mayores en placa madre.
-              </div>
             </div>
 
             <div class="form-group">
@@ -159,9 +121,7 @@
           <div><strong>Titular:</strong> <span id="t-prop">-</span></div>
           <div><strong>Teléfono:</strong> <span id="t-tel">-</span></div>
           <div><strong>Equipo:</strong> <span id="t-equipo">-</span></div>
-          <div><strong>N° Serie:</strong> <span id="t-serie">-</span></div>
-          <div><strong>Servicio:</strong> <span id="t-servicio">-</span></div>
-          <div><strong>Encendido Inicial:</strong> <span id="t-encendido">-</span></div>
+          <div><strong>Servicios:</strong> <span id="t-servicio">-</span></div>
           <div><strong>Accesorios:</strong> <span id="t-acc">-</span></div>
           <div><strong>Inspección:</strong> <span id="t-obs">-</span></div>
         </div>
@@ -205,13 +165,13 @@
           item.innerHTML = `
             <div>
               <strong>${o.etiquetaTaller}</strong> — ${o.propietario.nombre}<br>
-              <small style="color:var(--gris-medio);">${o.dispositivo.tipo} ${o.dispositivo.marca} | ${o.tipoServicio}</small>
+              <small style="color:var(--gris-medio);">${o.dispositivo.tipo} ${o.dispositivo.marca} | ${AppUtils.textoServicios(o)}</small>
             </div>
             <button class="btn btn-outline btn-sm" style="padding:0.2rem 0.5rem; font-size:0.75rem;">Atender</button>
           `;
           item.onclick = () => {
-            document.getElementById('search-rut').value = o.propietario.rut;
-            buscarPorRut();
+            document.getElementById('search-q').value = o.propietario.rut;
+            buscarTitular();
           };
           container.appendChild(item);
         });
@@ -220,28 +180,34 @@
       }
     }
 
-    async function buscarPorRut() {
-      const rutInput = document.getElementById('search-rut');
-      const rutLimpio = AppUtils.formatRut(rutInput.value.trim());
-      rutInput.value = rutLimpio;
+    const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    let temporizadorBusqueda = null;
 
-      if (!rutLimpio) {
-        AppUtils.showToast('Ingrese un RUT para buscar', 'warning');
+    // Busca mientras se escribe (espera un momento para no consultar en cada tecla)
+    function buscarConRetraso() {
+      clearTimeout(temporizadorBusqueda);
+      const texto = document.getElementById('search-q').value.trim();
+      if (texto.length < 2) return;
+      temporizadorBusqueda = setTimeout(buscarTitular, 350);
+    }
+
+    async function buscarTitular() {
+      const texto = document.getElementById('search-q').value.trim();
+      if (!texto) {
+        AppUtils.showToast('Escriba un nombre o RUT para buscar', 'warning');
         return;
       }
 
       try {
-        const todasOrdenes = await ClinicaAPI.getOrdenes({ rut: rutLimpio });
-        const ownerInfo = document.getElementById('owner-info');
+        const ordenes = await ClinicaAPI.getOrdenes({ q: texto });
         const countBadge = document.getElementById('count-badge');
         const devicesContainer = document.getElementById('devices-list');
 
-        if (todasOrdenes.length === 0) {
-          ownerInfo.style.display = 'none';
+        if (ordenes.length === 0) {
           countBadge.textContent = '0 encontrados';
           devicesContainer.innerHTML = `
             <div style="text-align: center; color: var(--inacap-rojo); padding: 1.5rem; background: #FFF5F5; border-radius: 4px; border: 1px solid var(--inacap-rojo-borde);">
-              No se encontraron registros para el RUT <strong>${rutLimpio}</strong>.<br>
+              No se encontraron registros para <strong>${esc(texto)}</strong>.<br>
               <button class="btn btn-primary btn-sm" style="margin-top: 0.75rem;" onclick="abrirRegistroManualExpress()">
                 + Crear Registro Express
               </button>
@@ -250,34 +216,46 @@
           return;
         }
 
-        const primerOrden = todasOrdenes[0];
-        ownerInfo.style.display = 'block';
-        document.getElementById('owner-name').textContent = `Titular: ${primerOrden.propietario.nombre}`;
-        document.getElementById('owner-contact').textContent = `RUT: ${primerOrden.propietario.rut} | Tel: ${primerOrden.propietario.telefono} | ${primerOrden.propietario.comuna}`;
-        countBadge.textContent = `${todasOrdenes.length} equipos registrados`;
+        // Agrupamos por titular: una búsqueda por nombre puede traer a varias personas
+        const grupos = new Map();
+        ordenes.forEach(o => {
+          if (!grupos.has(o.propietario.rut)) grupos.set(o.propietario.rut, { propietario: o.propietario, ordenes: [] });
+          grupos.get(o.propietario.rut).ordenes.push(o);
+        });
+        countBadge.textContent = `${ordenes.length} equipo(s) • ${grupos.size} titular(es)`;
 
         devicesContainer.innerHTML = '';
-        todasOrdenes.forEach(o => {
-          const card = document.createElement('div');
-          card.style.cssText = 'border:1px solid var(--border-card); border-radius:6px; padding:0.85rem; background:#FFF; margin-bottom:0.5rem;';
-          card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
-              <span class="kanban-code">${o.etiquetaTaller}</span>
-              ${AppUtils.getStatusBadge(o.estado)}
-            </div>
-            <div style="font-weight:700; color:var(--text-main); font-size:0.92rem;">
-              ${o.dispositivo.tipo} ${o.dispositivo.marca} ${o.dispositivo.modelo}
-            </div>
-            <div style="font-size:0.8rem; color:var(--gris-medio); margin-top:0.2rem;">
-              <strong>Servicio:</strong> ${o.tipoServicio} | <strong>Falla:</strong> ${o.fallaReportada}
-            </div>
-            <div style="margin-top:0.6rem; text-align:right;">
-              <button class="btn ${o.estado === 'Preinscrito' ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="seleccionarOrden(${o.idOrden})">
-                ${o.estado === 'Preinscrito' ? 'Recepcionar este Equipo ➔' : 'Ver Ficha'}
-              </button>
-            </div>
-          `;
-          devicesContainer.appendChild(card);
+        grupos.forEach(grupo => {
+          const p = grupo.propietario;
+          const encabezado = document.createElement('div');
+          encabezado.style.cssText = 'background:#F9FAFB; border:1px solid var(--border-card); border-left:3px solid var(--inacap-negro); border-radius:4px; padding:0.7rem 0.95rem;';
+          encabezado.innerHTML = `
+            <div style="font-weight:800; color:var(--inacap-negro);">Titular: ${esc(p.nombre)}</div>
+            <div style="font-size:0.82rem; color:var(--gris-medio);">RUT: ${esc(p.rut)} | Tel: ${esc(p.telefono)} | ${esc(p.comuna)}</div>`;
+          devicesContainer.appendChild(encabezado);
+
+          grupo.ordenes.forEach(o => {
+            const card = document.createElement('div');
+            card.style.cssText = 'border:1px solid var(--border-card); border-radius:6px; padding:0.85rem; background:#FFF; margin-bottom:0.25rem;';
+            card.innerHTML = `
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                <span class="kanban-code">${esc(o.etiquetaTaller)}</span>
+                ${AppUtils.getStatusBadge(o.estado)}
+              </div>
+              <div style="font-weight:700; color:var(--text-main); font-size:0.92rem;">
+                ${esc(o.dispositivo.tipo)} ${esc(o.dispositivo.marca)} ${esc(o.dispositivo.modelo)}
+              </div>
+              <div style="font-size:0.8rem; color:var(--gris-medio); margin-top:0.2rem;">
+                <strong>Servicios:</strong> ${esc(AppUtils.textoServicios(o))} | <strong>Falla:</strong> ${esc(o.fallaReportada)}
+              </div>
+              <div style="margin-top:0.6rem; text-align:right;">
+                <button class="btn ${o.estado === 'Preinscrito' ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="seleccionarOrden(${o.idOrden})">
+                  ${o.estado === 'Preinscrito' ? 'Recepcionar este Equipo ➔' : 'Ver Ficha'}
+                </button>
+              </div>
+            `;
+            devicesContainer.appendChild(card);
+          });
         });
 
       } catch (error) {
@@ -291,23 +269,45 @@
 
       ordenSeleccionadaActual = orden;
       document.getElementById('no-device-alert').style.display = 'none';
-      document.getElementById('reception-fields').style.display = 'block';
+
+      const yaRecepcionado = orden.estado !== 'Preinscrito';
+      document.getElementById('reception-fields').style.display = yaRecepcionado ? 'none' : 'block';
+      const ficha = document.getElementById('ficha-solo-lectura');
+      ficha.style.display = yaRecepcionado ? 'block' : 'none';
+      if (yaRecepcionado) mostrarFichaSoloLectura(orden, ficha);
 
       const badgeCode = document.getElementById('active-device-code');
       badgeCode.style.display = 'inline-block';
       badgeCode.textContent = orden.etiquetaTaller;
 
       document.getElementById('selected-orden-id').value = orden.idOrden;
-      document.getElementById('rec-servicio').value = orden.tipoServicio;
-      document.getElementById('rec-serie').value = orden.dispositivo.numeroSerie || '';
+      AppUtils.renderSelectorServicios('rec-servicio', orden.servicios || [orden.tipoServicio]);
       document.getElementById('rec-accesorios').value = orden.dispositivo.accesorios || '';
       document.getElementById('rec-inspeccion').value = orden.detalleInspeccionPrevia || '';
 
       document.getElementById('reception-form-card').scrollIntoView({ behavior: 'smooth' });
     }
 
-    function toggleEncendidoWarning(enciende) {
-      document.getElementById('no-enciende-warning').style.display = enciende ? 'none' : 'block';
+    // Muestra los datos de recepción sin permitir editarlos
+    function mostrarFichaSoloLectura(orden, contenedor) {
+      const filas = [
+        ['Estado', AppUtils.getStatusBadge(orden.estado)],
+        ['Servicios', esc(AppUtils.textoServicios(orden))],
+        ['Encendido', orden.encendidoInicial === null ? 'Pendiente: lo verifica el técnico en taller' : AppUtils.textoEncendido(orden.encendidoInicial)],
+        ['Accesorios recibidos', esc(orden.dispositivo.accesorios || 'Sin accesorios')],
+        ['Inspección visual previa', esc(orden.detalleInspeccionPrevia || 'Sin observaciones')],
+        ['N° de serie', esc(orden.dispositivo.numeroSerie || 'Aún no registrado por el técnico')],
+        ['Técnico asignado', esc(orden.tecnicoAsignado || 'Sin asignar')],
+        ['Ingreso', esc(orden.fechaIngreso || '—')]
+      ];
+      contenedor.innerHTML = `
+        <div style="background:#F9FAFB; border:1px solid var(--border-card); border-left:4px solid var(--gris-medio); border-radius:var(--radius-sm); padding:1.15rem;">
+          <h3 style="font-size:0.95rem; font-weight:800; color:var(--inacap-negro); margin-bottom:0.35rem;">Este equipo ya fue recepcionado</h3>
+          <p style="font-size:0.82rem; color:var(--gris-medio); margin-bottom:0.85rem;">La recepción solo se realiza una vez, por eso la ficha está en modo lectura.</p>
+          <div style="display:grid; grid-template-columns:minmax(120px, 170px) 1fr; gap:0.45rem 0.85rem; font-size:0.85rem; align-items:start;">
+            ${filas.map(([etiqueta, valor]) => `<div style="color:var(--gris-medio); font-weight:700;">${etiqueta}</div><div>${valor}</div>`).join('')}
+          </div>
+        </div>`;
     }
 
     async function confirmarRecepcion(e) {
@@ -315,32 +315,40 @@
       if (!ordenSeleccionadaActual) return;
 
       const ordenId = ordenSeleccionadaActual.idOrden;
-      const enciende = document.querySelector('input[name="encendido"]:checked').value === 'true';
-      const serie = document.getElementById('rec-serie').value.trim();
       const accesorios = document.getElementById('rec-accesorios').value.trim();
       const inspeccion = document.getElementById('rec-inspeccion').value.trim();
-      const servicio = document.getElementById('rec-servicio').value;
+      const servicios = AppUtils.leerServicios('rec-servicio');
+      if (servicios.length === 0) {
+        AppUtils.showToast('Marque al menos un servicio.', 'warning');
+        return;
+      }
+      const servicio = servicios.join(' + ');
 
       try {
-        await fetch(`/api/ordenes/${ordenId}/`, {
+        const respuesta = await fetch(`/api/ordenes/${ordenId}/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             estado: 'Recepcionado',
-            tipoServicio: servicio,
-            encendidoInicial: enciende,
-            detalleInspeccionPrevia: inspeccion
+            servicios: servicios,
+            detalleInspeccionPrevia: inspeccion,
+            accesorios: accesorios
           })
         });
+
+        if (!respuesta.ok) {
+          const datos = await respuesta.json().catch(() => ({}));
+          AppUtils.showToast(datos.error || 'No se pudo recepcionar el equipo.', 'danger');
+          buscarTitular();
+          return;
+        }
 
         document.getElementById('t-id').textContent = ordenSeleccionadaActual.etiquetaTaller;
         document.getElementById('t-fecha').textContent = new Date().toLocaleString();
         document.getElementById('t-prop').textContent = ordenSeleccionadaActual.propietario.nombre;
         document.getElementById('t-tel').textContent = ordenSeleccionadaActual.propietario.telefono;
         document.getElementById('t-equipo').textContent = `${ordenSeleccionadaActual.dispositivo.tipo} ${ordenSeleccionadaActual.dispositivo.marca}`;
-        document.getElementById('t-serie').textContent = serie || 'Sin serie';
         document.getElementById('t-servicio').textContent = servicio;
-        document.getElementById('t-encendido').textContent = enciende ? 'CONFORME (ENCIENDE)' : 'NO ENCIENDE';
         document.getElementById('t-acc').textContent = accesorios;
         document.getElementById('t-obs').textContent = inspeccion;
 
@@ -348,7 +356,7 @@
         AppUtils.showToast(`Equipo recepcionado: ${ordenSeleccionadaActual.etiquetaTaller}`, 'success');
         
         cargarPreinscritosPendientes();
-        buscarPorRut();
+        buscarTitular();
       } catch (error) {
         AppUtils.showToast('Error al actualizar en la base de datos', 'danger');
       }
@@ -359,6 +367,13 @@
     }
 
     cargarPreinscritosPendientes();
+
+    // Si se llega desde el Registro Express (?q=RUT), se busca de inmediato al titular recién registrado
+    const consultaInicial = new URLSearchParams(window.location.search).get('q');
+    if (consultaInicial) {
+      document.getElementById('search-q').value = consultaInicial;
+      buscarTitular();
+    }
   </script>
 </body>
 </html>

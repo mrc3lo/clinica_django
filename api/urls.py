@@ -4,7 +4,7 @@ Todas las rutas comienzan con /api/
 """
 
 from django.urls import path
-from . import views
+from . import views, views_admin
 
 urlpatterns = [
     # Autenticación y control de sesión
@@ -27,6 +27,14 @@ urlpatterns = [
 
     # Métricas del Dashboard y Reportes
     path('metricas/', views.api_obtener_metricas, name='api_metricas'),
+
+    # Administración (solo admin): carga masiva por CSV
+    path('admin/plantilla-usuarios/', views_admin.api_plantilla_usuarios, name='api_plantilla_usuarios'),
+    path('admin/plantilla-checklists/', views_admin.api_plantilla_checklists, name='api_plantilla_checklists'),
+    path('admin/usuarios/', views_admin.api_listar_usuarios, name='api_admin_usuarios'),
+    path('admin/usuarios/importar/', views_admin.api_importar_usuarios, name='api_importar_usuarios'),
+    path('admin/checklists/', views_admin.api_listar_plantillas, name='api_admin_checklists'),
+    path('admin/checklists/importar/', views_admin.api_importar_checklists, name='api_importar_checklists'),
 
     # Semilla de datos de prueba
     path('restaurar-datos/', views.api_restaurar_datos_demo, name='api_restaurar_datos'),

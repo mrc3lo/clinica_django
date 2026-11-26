@@ -63,6 +63,7 @@ window.ClinicaAPI = {
       const params = new URLSearchParams();
       if (filtros.estado) params.append('estado', filtros.estado);
       if (filtros.rut) params.append('rut', filtros.rut);
+      if (filtros.q) params.append('q', filtros.q);
       if (filtros.servicio) params.append('servicio', filtros.servicio);
 
       const url = `${this.baseUrl}/ordenes/?${params.toString()}`;
@@ -125,14 +126,16 @@ window.ClinicaAPI = {
   },
 
   // Actualiza un ítem de checklist técnico (OK, FALLA, PENDIENTE)
-  async actualizarChecklist(ordenId, codigoItem, resultado, descripcion = '') {
+  async actualizarChecklist(ordenId, codigoItem, resultado, descripcion = '', motivo = '') {
     try {
       const respuesta = await fetch(`${this.baseUrl}/ordenes/${ordenId}/checklists/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo: codigoItem, resultado, desc: descripcion })
+        body: JSON.stringify({ codigo: codigoItem, resultado, desc: descripcion, motivo })
       });
-      return await respuesta.json();
+      const data = await respuesta.json();
+      if (!respuesta.ok) throw new Error(data.error || 'Error al actualizar checklist');
+      return data;
     } catch (error) {
       console.error('Error al actualizar checklist:', error);
       throw error;
