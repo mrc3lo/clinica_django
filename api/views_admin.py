@@ -4,7 +4,6 @@ Endpoints de Administración (solo rol admin): carga masiva por CSV de usuarios 
 
 import csv
 from django.http import JsonResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
 
 from autenticacion.decoradores import api_roles_permitidos
 from autenticacion.models import Usuario
@@ -61,14 +60,12 @@ def _importar(request, procesador):
     return JsonResponse(resultado)
 
 
-@csrf_exempt
 @api_roles_permitidos(['admin'])
 def api_importar_usuarios(request):
     """POST (multipart): archivo CSV y confirmar=0|1."""
     return _importar(request, procesar_usuarios)
 
 
-@csrf_exempt
 @api_roles_permitidos(['admin'])
 def api_importar_checklists(request):
     """POST (multipart): archivo CSV y confirmar=0|1."""

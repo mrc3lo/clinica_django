@@ -69,10 +69,8 @@ class Usuario(models.Model):
 
     def verificar_contrasena(self, clave_plana):
         """Valida si la contraseña ingresada coincide con la almacenada"""
-        if self.contrasena.startswith('pbkdf2_') or self.contrasena.startswith('argon2') or self.contrasena.startswith('bcrypt'):
-            return check_password(clave_plana, self.contrasena)
-        # Permite coincidencia directa en caso de contraseñas de prueba
-        return self.contrasena == clave_plana
+        # Las contraseñas SIEMPRE se comparan contra su hash (OWASP A02 / A07): no existe comparación en texto plano
+        return check_password(clave_plana, self.contrasena)
 
     @property
     def username(self):

@@ -29,7 +29,7 @@
         <div style="flex: 1; min-width: 250px;">
           <label class="form-label required">Buscar por nombre o RUT del Titular:</label>
           <div style="display: flex; gap: 0.5rem;">
-            <input type="search" id="search-q" class="form-control" placeholder="Ej: Carlos Vega  o  18.452.910-3" autocomplete="off"
+            <input type="search" id="search-q" class="form-control" placeholder="Ej: Carlos Vega  o  18.452.910-6" autocomplete="off"
                    oninput="buscarConRetraso()" onkeyup="if(event.key==='Enter') { clearTimeout(temporizadorBusqueda); buscarTitular(); }">
             <button class="btn btn-secondary" onclick="buscarTitular()">Buscar</button>
           </div>
@@ -164,8 +164,8 @@
           item.style.cssText = 'background:#FFFFFF; border:1px solid var(--border-card); border-radius:4px; padding:0.6rem 0.75rem; font-size:0.82rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer;';
           item.innerHTML = `
             <div>
-              <strong>${o.etiquetaTaller}</strong> — ${o.propietario.nombre}<br>
-              <small style="color:var(--gris-medio);">${o.dispositivo.tipo} ${o.dispositivo.marca} | ${AppUtils.textoServicios(o)}</small>
+              <strong>${AppUtils.escapar(o.etiquetaTaller)}</strong> — ${AppUtils.escapar(o.propietario.nombre)}<br>
+              <small style="color:var(--gris-medio);">${AppUtils.escapar(o.dispositivo.tipo)} ${AppUtils.escapar(o.dispositivo.marca)} | ${AppUtils.textoServicios(o)}</small>
             </div>
             <button class="btn btn-outline btn-sm" style="padding:0.2rem 0.5rem; font-size:0.75rem;">Atender</button>
           `;
@@ -327,7 +327,7 @@
       try {
         const respuesta = await fetch(`/api/ordenes/${ordenId}/`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: ClinicaAPI.cabeceras(),
           body: JSON.stringify({
             estado: 'Recepcionado',
             servicios: servicios,

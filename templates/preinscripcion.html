@@ -279,7 +279,7 @@
         feedback.textContent = 'RUT válido.';
         feedback.style.color = 'var(--inacap-negro)';
 
-        const propietarioExistente = await ClinicaAPI.buscarPropietarioPorRut(formateado);
+        const propietarioExistente = MODO_EXPRESS ? await ClinicaAPI.buscarPropietarioPorRut(formateado) : null;  // el público no consulta datos de otros titulares
         if (propietarioExistente) {
           document.getElementById('nombre').value = propietarioExistente.nombre || '';
           document.getElementById('telefono').value = propietarioExistente.telefono || '';

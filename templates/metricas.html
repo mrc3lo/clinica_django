@@ -208,11 +208,11 @@
             div.style.cssText = 'background:#FFFFFF; border:1px solid var(--border-card); border-left:3px solid var(--inacap-rojo); border-radius:4px; padding:0.85rem; font-size:0.85rem;';
             div.innerHTML = `
               <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem;">
-                <strong>${o.propietario.nombre} (${o.dispositivo.tipo} ${o.dispositivo.marca})</strong>
+                <strong>${AppUtils.escapar(o.propietario.nombre)} (${AppUtils.escapar(o.dispositivo.tipo)} ${AppUtils.escapar(o.dispositivo.marca)})</strong>
                 <span style="color:var(--inacap-rojo); font-weight:800;">${'★'.repeat(o.encuesta.nota)}</span>
               </div>
-              <div style="color:var(--text-secondary); font-style:italic;">"${o.encuesta.comentario || 'Sin comentario escrito.'}"</div>
-              <div style="color:var(--gris-medio); font-size:0.75rem; margin-top:0.35rem;">Fecha: ${o.encuesta.fecha || ''} | Técnico responsable: ${o.tecnicoAsignado || 'Equipo FHyS'}</div>
+              <div style="color:var(--text-secondary); font-style:italic;">"${AppUtils.escapar(o.encuesta.comentario || 'Sin comentario escrito.')}"</div>
+              <div style="color:var(--gris-medio); font-size:0.75rem; margin-top:0.35rem;">Fecha: ${AppUtils.escapar(o.encuesta.fecha || '')} | Técnico responsable: ${AppUtils.escapar(o.tecnicoAsignado || 'Equipo FHyS')}</div>
             `;
             containerEnc.appendChild(div);
           });
@@ -237,19 +237,22 @@
       let csvContent = "data:text/csv;charset=utf-8,";
       csvContent += "N_Orden,RUT_Titular,Nombre_Titular,Telefono,Tipo_Dispositivo,Marca,Modelo,Serie,Servicio,Estado,Tecnico,Encendio_Inicial,Nota_Encuesta\n";
 
+      // Neutraliza fórmulas de planilla (=, +, -, @) para evitar inyección de fórmulas al abrir el CSV en Excel
+      const seguro = v => { const t = String(v ?? ''); return /^[=+\-@]/.test(t) ? "'" + t : t; };
+
       ordenesParaExportar.forEach(o => {
         const fila = [
           o.etiquetaTaller || o.idOrden,
           o.propietario.rut || '',
-          `"${o.propietario.nombre || ''}"`,
+          `"${seguro(o.propietario.nombre).replace(/"/g, '""')}"`,
           o.propietario.telefono || '',
           o.dispositivo.tipo || '',
-          o.dispositivo.marca || '',
-          `"${o.dispositivo.modelo || ''}"`,
-          o.dispositivo.numeroSerie || '',
+          seguro(o.dispositivo.marca),
+          `"${seguro(o.dispositivo.modelo).replace(/"/g, '""')}"`,
+          seguro(o.dispositivo.numeroSerie),
           o.tipoServicio || '',
           o.estado || '',
-          `"${o.tecnicoAsignado || ''}"`,
+          `"${seguro(o.tecnicoAsignado).replace(/"/g, '""')}"`,
           o.encendidoInicial === null ? 'SIN VERIFICAR' : (o.encendidoInicial ? 'SI' : 'NO'),
           o.encuesta ? o.encuesta.nota : ''
         ].join(",");

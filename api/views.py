@@ -5,16 +5,18 @@ y el manejo de sesiones estándar de Django (request.session).
 """
 
 import json
+import logging
 import re
 import unicodedata
+from django.conf import settings
+from django.core.cache import cache
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.db import transaction
 
 # Importamos nuestro modelo propio de Usuario y utilidades de sesión
 from autenticacion.models import Usuario
-from autenticacion.decoradores import obtener_usuario_actual, obtener_rol_usuario
+from autenticacion.decoradores import obtener_usuario_actual, obtener_rol_usuario, api_roles_permitidos
 from gestion.models import (
     Propietario, 
     Dispositivo, 
@@ -24,8 +26,27 @@ from gestion.models import (
     VistoBuenoDocente, 
     EvaluacionSatisfaccion,
     PlantillaChecklist,
+    ESTADOS_ORDEN,
+    TIPOS_DISPOSITIVO,
     normalizar_servicios
 )
+from gestion.validadores import (
+    validar_rut, formatear_rut, enmascarar_rut, validar_telefono, validar_correo,
+    texto_seguro, MAX_NOMBRE, MAX_TEXTO_CORTO, MAX_TEXTO_LARGO
+)
+
+# Bitácora de seguridad (OWASP A09): intentos de login fallidos, bloqueos y acciones sensibles
+registro = logging.getLogger('clinica')
+
+# Roles del personal que puede usar la API (el administrador siempre tiene pase)
+ROLES_PERSONAL = ['recepcion', 'docente', 'tecnico']
+ESTADOS_VALIDOS = [e for e, _ in ESTADOS_ORDEN]
+TIPOS_DISPOSITIVO_VALIDOS = [t for t, _ in TIPOS_DISPOSITIVO]
+CRITICIDADES_VALIDAS = ('Baja', 'Media', 'Alta')
+
+# Protección contra fuerza bruta en el login: 5 intentos fallidos por usuario y equipo cada 15 minutos
+MAX_INTENTOS_LOGIN = 5
+VENTANA_BLOQUEO_SEGUNDOS = 15 * 60
 
 # Catálogo estándar de checklists según el informe técnico de INACAP
 CATALOGO_CHECKLISTS = {
@@ -135,11 +156,56 @@ def servicios_desde_datos(datos, por_defecto=None):
     return lista or (por_defecto if por_defecto is not None else ['Mantención Física'])
 
 
+def validar_datos_titular(rut, nombre, telefono, email):
+    """Valida los datos del titular en el servidor. Devuelve el mensaje de error o None si todo está bien."""
+    if not rut or not nombre:
+        return 'El RUT y el Nombre del titular son obligatorios.'
+    if not validar_rut(rut):
+        return 'El RUT no es válido (revise el número y el dígito verificador).'
+    if not validar_telefono(telefono):
+        return 'El teléfono no tiene un formato válido.'
+    if not validar_correo(email):
+        return 'El correo electrónico no tiene un formato válido.'
+    return None
+
+
+def dic_orden(orden, usuario):
+    """
+    Convierte la orden a diccionario JSON aplicando la privacidad por rol (Ley 19.628):
+    al técnico se le entrega el RUT enmascarado desde el servidor, no solo oculto en pantalla.
+    """
+    datos = orden.a_diccionario_completo()
+    if usuario and usuario.rol == 'tecnico':
+        datos['propietario']['rut'] = enmascarar_rut(datos['propietario']['rut'])
+    return datos
+
+
+def leer_json(request):
+    """Lee el cuerpo JSON de la petición; si no es un objeto JSON válido, devuelve un diccionario vacío."""
+    try:
+        datos = json.loads(request.body or b'{}')
+    except (ValueError, UnicodeDecodeError):
+        return {}
+    return datos if isinstance(datos, dict) else {}
+
+
+def ip_cliente(request):
+    return request.META.get('REMOTE_ADDR', 'desconocida')
+
+
+def error_interno(contexto):
+    """
+    Respuesta genérica para errores inesperados (OWASP A05/A09): el detalle técnico queda en la bitácora
+    del servidor y no se le muestra al usuario, para no revelar la estructura interna del sistema.
+    """
+    registro.exception(contexto)
+    return JsonResponse({'error': 'Ocurrió un error interno. Intente nuevamente.'}, status=500)
+
+
 # ==============================================================================
 # ENDPOINTS DE AUTENTICACIÓN LOCAL PROPIA
 # ==============================================================================
 
-@csrf_exempt
 def api_iniciar_sesion(request):
     """
     POST: Valida credenciales contra nuestra tabla local 'Usuario' en SQLite.
@@ -149,14 +215,25 @@ def api_iniciar_sesion(request):
         return JsonResponse({'error': 'Método no permitido. Use POST.'}, status=405)
 
     try:
-        datos = json.loads(request.body)
-        nombre_usuario = datos.get('usuario', '').strip()
-        clave = datos.get('clave', '').strip()
+        datos = leer_json(request)
+        nombre_usuario = texto_seguro(datos.get('usuario'), 50)
+        clave = texto_seguro(datos.get('clave'), 128)
+
+        # Fuerza bruta (OWASP A07): se bloquea temporalmente tras varios intentos fallidos
+        llave_intentos = f'login:{ip_cliente(request)}:{nombre_usuario.lower()}'
+        if cache.get(llave_intentos, 0) >= MAX_INTENTOS_LOGIN:
+            registro.warning('Login bloqueado por demasiados intentos: usuario=%s ip=%s', nombre_usuario, ip_cliente(request))
+            return JsonResponse({
+                'error': 'Demasiados intentos fallidos. Espere unos minutos antes de volver a intentar.'
+            }, status=429)
 
         # Buscamos en nuestra tabla propia de usuarios
         usuario = Usuario.objects.filter(nombre_usuario=nombre_usuario, activo=True).first()
 
         if usuario and usuario.verificar_contrasena(clave):
+            cache.delete(llave_intentos)
+            # Se regenera la sesión al autenticar (evita la fijación de sesión)
+            request.session.cycle_key()
             # Guardamos los datos directamente en la sesión de Django
             request.session['usuario_id'] = usuario.id
             request.session['usuario_rol'] = usuario.rol
@@ -180,17 +257,21 @@ def api_iniciar_sesion(request):
                 'url_destino': url_destino
             })
         else:
+            cache.set(llave_intentos, cache.get(llave_intentos, 0) + 1, VENTANA_BLOQUEO_SEGUNDOS)
+            registro.warning('Login fallido: usuario=%s ip=%s', nombre_usuario, ip_cliente(request))
+            # Mensaje único: no revela si el usuario existe o si falló la contraseña
             return JsonResponse({
                 'error': 'Usuario o contraseña incorrectos. Por favor verifique.'
             }, status=401)
 
-    except Exception as error:
-        return JsonResponse({'error': f'Error en el proceso de login: {str(error)}'}, status=500)
+    except Exception:
+        return error_interno('Error en el proceso de login')
 
 
-@csrf_exempt
 def api_cerrar_sesion(request):
-    """POST o GET: Limpia la sesión del usuario."""
+    """POST: Limpia la sesión del usuario (solo POST, protegido con token CSRF)."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Use POST'}, status=405)
     request.session.flush()
     return JsonResponse({'mensaje': 'Sesión cerrada correctamente'})
 
@@ -210,9 +291,12 @@ def api_usuario_actual(request):
 # ENDPOINTS DE PROPIETARIOS Y DISPOSITIVOS
 # ==============================================================================
 
-@csrf_exempt
+@api_roles_permitidos(['recepcion'])
 def api_propietarios(request):
-    """GET y POST para la gestión de propietarios."""
+    """
+    GET y POST para la gestión de propietarios.
+    CONTROL DE ACCESO: contiene datos personales de terceros, por eso solo lo usa el Mesón de Recepción.
+    """
     if request.method == 'GET':
         rut_buscar = request.GET.get('rut', '').strip()
         if rut_buscar:
@@ -224,16 +308,18 @@ def api_propietarios(request):
 
     elif request.method == 'POST':
         try:
-            datos = json.loads(request.body)
-            rut = datos.get('rut', '').strip()
-            nombre = datos.get('nombre', '').strip()
-            telefono = datos.get('telefono', '').strip()
-            email = datos.get('email', '').strip()
-            comuna = datos.get('comuna', 'San Pedro de la Paz').strip()
-            consentimiento = datos.get('consentimiento', True)
+            datos = leer_json(request)
+            rut = texto_seguro(datos.get('rut'), 20)
+            nombre = texto_seguro(datos.get('nombre'), MAX_NOMBRE)
+            telefono = texto_seguro(datos.get('telefono'), 30)
+            email = texto_seguro(datos.get('email'), 254)
+            comuna = texto_seguro(datos.get('comuna') or 'San Pedro de la Paz', MAX_TEXTO_CORTO)
+            consentimiento = datos.get('consentimiento') is not False
 
-            if not rut or not nombre:
-                return JsonResponse({'error': 'El RUT y el Nombre son obligatorios'}, status=400)
+            error_datos = validar_datos_titular(rut, nombre, telefono, email)
+            if error_datos:
+                return JsonResponse({'error': error_datos}, status=400)
+            rut = formatear_rut(rut)
 
             propietario, creado = Propietario.objects.update_or_create(
                 rut=rut,
@@ -251,14 +337,15 @@ def api_propietarios(request):
                 'creado': creado,
                 'propietario': propietario.a_diccionario()
             })
-        except Exception as error:
-            return JsonResponse({'error': f'Error al registrar propietario: {str(error)}'}, status=500)
+        except Exception:
+            return error_interno('Error al registrar propietario')
 
     return JsonResponse({'error': 'Método no soportado'}, status=405)
 
 
+@api_roles_permitidos(['recepcion'])
 def api_dispositivos(request):
-    """GET: Lista dispositivos en la base de datos."""
+    """GET: Lista dispositivos en la base de datos (solo Recepción y Administrador)."""
     rut = request.GET.get('rut', '').strip()
     if rut:
         dispositivos = Dispositivo.objects.filter(propietario__rut__icontains=rut)
@@ -272,13 +359,17 @@ def api_dispositivos(request):
 # ENDPOINTS DE ÓRDENES DE SERVICIO
 # ==============================================================================
 
-@csrf_exempt
 def api_listar_o_crear_ordenes(request):
     """
-    GET: Lista órdenes con filtros opcionales.
-    POST: Crea nueva orden (preinscripción o mesón).
+    GET: Lista órdenes con filtros opcionales (requiere sesión iniciada).
+    POST: Crea nueva orden. Es público solo para la pre-inscripción por QR (estado 'Preinscrito');
+          el personal autenticado puede registrar otros datos (registro express en mesón).
     """
+    usuario = obtener_usuario_actual(request)
+
     if request.method == 'GET':
+        if not usuario:
+            return JsonResponse({'error': 'No autenticado. Por favor inicie sesión.'}, status=401)
         filtro_estado = request.GET.get('estado', '').strip()
         filtro_rut = request.GET.get('rut', '').strip()
         filtro_servicio = request.GET.get('servicio', '').strip()
@@ -301,45 +392,51 @@ def api_listar_o_crear_ordenes(request):
             ordenes = [o for o in ordenes if titular_coincide(o.dispositivo.propietario, filtro_q)]
 
         # El técnico solo ve lo que está en espera y sus propios equipos
-        usuario = obtener_usuario_actual(request)
         ordenes = [o for o in ordenes if not orden_oculta_para_tecnico(usuario, o)]
 
-        return JsonResponse({'ordenes': [orden.a_diccionario_completo() for orden in ordenes]})
+        return JsonResponse({'ordenes': [dic_orden(orden, usuario) for orden in ordenes]})
 
     elif request.method == 'POST':
         try:
             with transaction.atomic():
-                datos = json.loads(request.body)
+                datos = leer_json(request)
 
-                rut = datos.get('rut', '').strip()
-                nombre = datos.get('nombre', '').strip()
-                telefono = datos.get('telefono', '').strip()
-                email = datos.get('email', '').strip()
-                comuna = datos.get('comuna', 'San Pedro de la Paz').strip()
-                consentimiento = datos.get('consentimiento', True)
+                rut = texto_seguro(datos.get('rut'), 20)
+                nombre = texto_seguro(datos.get('nombre'), MAX_NOMBRE)
+                telefono = texto_seguro(datos.get('telefono'), 30)
+                email = texto_seguro(datos.get('email'), 254)
+                comuna = texto_seguro(datos.get('comuna') or 'San Pedro de la Paz', MAX_TEXTO_CORTO)
 
-                if not rut or not nombre:
-                    return JsonResponse({'error': 'El RUT y el Nombre del titular son obligatorios.'}, status=400)
+                error_datos = validar_datos_titular(rut, nombre, telefono, email)
+                if error_datos:
+                    return JsonResponse({'error': error_datos}, status=400)
+                rut = formatear_rut(rut)
 
-                propietario, _ = Propietario.objects.update_or_create(
-                    rut=rut,
-                    defaults={
-                        'nombre_completo': nombre,
-                        'telefono': telefono,
-                        'correo': email,
-                        'comuna': comuna,
-                        'consentimiento_datos': consentimiento
-                    }
-                )
+                # Consentimiento informado (Ley 19.628): sin aceptación expresa no se registran datos
+                if datos.get('consentimiento') is not True:
+                    return JsonResponse({'error': 'Debe aceptar el consentimiento informado para continuar.'}, status=400)
+
+                datos_titular = {
+                    'nombre_completo': nombre,
+                    'telefono': telefono,
+                    'correo': email,
+                    'comuna': comuna,
+                    'consentimiento_datos': True
+                }
+                if usuario:
+                    propietario, _ = Propietario.objects.update_or_create(rut=rut, defaults=datos_titular)
+                else:
+                    # El público anónimo no puede sobrescribir los datos de un titular ya registrado
+                    propietario, _ = Propietario.objects.get_or_create(rut=rut, defaults=datos_titular)
 
                 total_equipos = Dispositivo.objects.count() + 1
                 etiqueta = f"CLI-PC-2026-{total_equipos:04d}"
 
-                tipo = datos.get('tipo', 'Notebook')
-                marca = datos.get('marca', 'Genérico')
-                modelo = datos.get('modelo', 'Estándar')
-                numero_serie = datos.get('numeroSerie', '')
-                accesorios = datos.get('accesorios', 'Sin accesorios')
+                tipo = datos.get('tipo') if datos.get('tipo') in TIPOS_DISPOSITIVO_VALIDOS else 'Notebook'
+                marca = texto_seguro(datos.get('marca') or 'Genérico', MAX_TEXTO_CORTO)
+                modelo = texto_seguro(datos.get('modelo') or 'Estándar', MAX_TEXTO_CORTO)
+                numero_serie = texto_seguro(datos.get('numeroSerie'), 100)
+                accesorios = texto_seguro(datos.get('accesorios') or 'Sin accesorios')
 
                 dispositivo = Dispositivo.objects.create(
                     propietario=propietario,
@@ -351,13 +448,17 @@ def api_listar_o_crear_ordenes(request):
                     accesorios=accesorios
                 )
 
-                estado_inicial = datos.get('estado', 'Preinscrito')
                 servicios = servicios_desde_datos(datos)
                 tipo_servicio = ', '.join(servicios)
-                falla = datos.get('fallaReportada', 'Mantención preventiva solicitada')
-                encendido = datos.get('encendidoInicial', None)
-                inspeccion = datos.get('detalleInspeccionPrevia', '')
-                tecnico = datos.get('tecnicoAsignado', None)
+                falla = texto_seguro(datos.get('fallaReportada') or 'Mantención preventiva solicitada')
+                if usuario and usuario.rol in ('recepcion', 'admin'):
+                    estado_inicial = datos.get('estado') if datos.get('estado') in ESTADOS_VALIDOS else 'Preinscrito'
+                    encendido = datos.get('encendidoInicial', None)
+                    inspeccion = texto_seguro(datos.get('detalleInspeccionPrevia'))
+                    tecnico = None
+                else:
+                    # Público (QR) y otros perfiles: la orden siempre nace "Preinscrito" y sin datos de taller
+                    estado_inicial, encendido, inspeccion, tecnico = 'Preinscrito', None, '', None
 
                 orden = OrdenServicio.objects.create(
                     dispositivo=dispositivo,
@@ -381,32 +482,36 @@ def api_listar_o_crear_ordenes(request):
 
                 return JsonResponse({
                     'mensaje': 'Orden creada exitosamente',
-                    'orden': orden.a_diccionario_completo()
+                    'orden': dic_orden(orden, usuario)
                 }, status=201)
 
-        except Exception as error:
-            return JsonResponse({'error': f'Error al registrar la orden: {str(error)}'}, status=500)
+        except Exception:
+            return error_interno('Error al registrar la orden')
 
     return JsonResponse({'error': 'Método no soportado'}, status=405)
 
 
-@csrf_exempt
+@api_roles_permitidos(ROLES_PERSONAL)
 def api_detalle_orden(request, orden_id):
-    """GET o PUT/POST: Consulta o actualiza campos de la orden."""
+    """GET o PUT/POST: Consulta o actualiza campos de la orden (solo personal autenticado)."""
     try:
         orden = OrdenServicio.objects.select_related('dispositivo', 'dispositivo__propietario').get(id=orden_id)
     except OrdenServicio.DoesNotExist:
         return JsonResponse({'error': f'No existe una orden con ID {orden_id}'}, status=404)
 
-    if orden_oculta_para_tecnico(obtener_usuario_actual(request), orden):
+    usuario = obtener_usuario_actual(request)
+    if orden_oculta_para_tecnico(usuario, orden):
         return respuesta_orden_ajena()
 
     if request.method == 'GET':
-        return JsonResponse({'orden': orden.a_diccionario_completo()})
+        return JsonResponse({'orden': dic_orden(orden, usuario)})
 
     elif request.method in ['PUT', 'POST']:
         try:
-            datos = json.loads(request.body)
+            datos = leer_json(request)
+            # Solo se aceptan estados que existen en el flujo
+            if 'estado' in datos and datos['estado'] not in ESTADOS_VALIDOS:
+                return JsonResponse({'error': 'Estado de orden no válido.'}, status=400)
             # Una orden solo se recepciona una vez: debe venir desde "Preinscrito"
             if datos.get('estado') == 'Recepcionado' and orden.estado != 'Preinscrito':
                 return JsonResponse({
@@ -414,29 +519,29 @@ def api_detalle_orden(request, orden_id):
                 }, status=409)
             if 'estado' in datos:
                 orden.estado = datos['estado']
-            if 'tecnicoAsignado' in datos:
-                orden.tecnico_asignado = datos['tecnicoAsignado']
-            if 'encendidoInicial' in datos:
+            if 'tecnicoAsignado' in datos and usuario.rol != 'tecnico':
+                orden.tecnico_asignado = texto_seguro(datos['tecnicoAsignado'], 120) or None
+            if 'encendidoInicial' in datos and (datos['encendidoInicial'] is None or isinstance(datos['encendidoInicial'], bool)):
                 orden.encendido_inicial = datos['encendidoInicial']
             if 'detalleInspeccionPrevia' in datos:
-                orden.detalle_inspeccion_previa = datos['detalleInspeccionPrevia']
+                orden.detalle_inspeccion_previa = texto_seguro(datos['detalleInspeccionPrevia'])
             servicios_cambiaron = False
             if 'servicios' in datos or 'tipoServicio' in datos:
                 nuevos = servicios_desde_datos(datos, por_defecto=orden.servicios)
                 servicios_cambiaron = nuevos != orden.servicios
                 orden.tipo_servicio = ', '.join(nuevos)
             if 'fallaReportada' in datos:
-                orden.falla_reportada = datos['fallaReportada']
+                orden.falla_reportada = texto_seguro(datos['fallaReportada'])
             if 'llamadaRealizada' in datos:
-                orden.llamada_realizada = datos['llamadaRealizada']
+                orden.llamada_realizada = datos['llamadaRealizada'] is True
 
             # Datos del equipo: el número de serie lo registra el técnico en taller;
             # los accesorios los registra recepción al recibir el equipo.
             dispositivo = orden.dispositivo
             if 'numeroSerie' in datos:
-                dispositivo.numero_serie = str(datos['numeroSerie']).strip()[:100]
+                dispositivo.numero_serie = texto_seguro(datos['numeroSerie'], 100)
             if 'accesorios' in datos:
-                dispositivo.accesorios = str(datos['accesorios']).strip() or 'Sin accesorios'
+                dispositivo.accesorios = texto_seguro(datos['accesorios']) or 'Sin accesorios'
             if 'numeroSerie' in datos or 'accesorios' in datos:
                 dispositivo.save()
 
@@ -445,15 +550,15 @@ def api_detalle_orden(request, orden_id):
                 sincronizar_checklist(orden)
             return JsonResponse({
                 'mensaje': 'Orden actualizada correctamente',
-                'orden': orden.a_diccionario_completo()
+                'orden': dic_orden(orden, usuario)
             })
-        except Exception as error:
-            return JsonResponse({'error': f'Error al actualizar orden: {str(error)}'}, status=500)
+        except Exception:
+            return error_interno('Error al actualizar orden')
 
     return JsonResponse({'error': 'Método no soportado'}, status=405)
 
 
-@csrf_exempt
+@api_roles_permitidos(ROLES_PERSONAL)
 def api_cambiar_estado_orden(request, orden_id):
     """POST: Cambia el estado de una orden en el flujo operativo."""
     if request.method != 'POST':
@@ -464,53 +569,54 @@ def api_cambiar_estado_orden(request, orden_id):
         usuario = obtener_usuario_actual(request)
         if orden_oculta_para_tecnico(usuario, orden):
             return respuesta_orden_ajena()
-        datos = json.loads(request.body)
+        datos = leer_json(request)
         nuevo_estado = datos.get('estado')
 
         if not nuevo_estado:
             return JsonResponse({'error': 'Debe especificar el nuevo estado'}, status=400)
+        if nuevo_estado not in ESTADOS_VALIDOS:
+            return JsonResponse({'error': 'Estado de orden no válido.'}, status=400)
 
         orden.estado = nuevo_estado
         if nuevo_estado == 'Entregado Conforme' and not orden.fecha_cierre:
             orden.fecha_cierre = timezone.now()
 
         if 'tecnicoAsignado' in datos:
-            orden.tecnico_asignado = datos['tecnicoAsignado']
+            orden.tecnico_asignado = texto_seguro(datos['tecnicoAsignado'], 120) or None
         # Si lo hace un técnico, el equipo queda siempre a su nombre (no se puede asignar a otro)
         if usuario and usuario.rol == 'tecnico':
             orden.tecnico_asignado = usuario.nombre_completo
 
         orden.save()
 
+        registro.info('Cambio de estado: orden=%s nuevo_estado=%s por=%s', orden.id, nuevo_estado, usuario)
         return JsonResponse({
             'mensaje': f'Estado cambiado a "{nuevo_estado}"',
-            'orden': orden.a_diccionario_completo()
+            'orden': dic_orden(orden, usuario)
         })
     except OrdenServicio.DoesNotExist:
         return JsonResponse({'error': 'Orden no encontrada'}, status=404)
-    except Exception as error:
-        return JsonResponse({'error': str(error)}, status=500)
+    except Exception:
+        return error_interno('Error al cambiar el estado de la orden')
 
 
-@csrf_exempt
+@api_roles_permitidos(['tecnico', 'docente'])
 def api_actualizar_checklist(request, orden_id):
     """POST: Actualiza el resultado de un ítem de checklist."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Use POST'}, status=405)
 
     usuario = obtener_usuario_actual(request)
-    if usuario and usuario.rol not in ['tecnico', 'docente', 'admin']:
-        return JsonResponse({'error': 'Acceso denegado: rol no autorizado para modificar checklist.'}, status=403)
 
     try:
         orden = OrdenServicio.objects.get(id=orden_id)
         if orden_oculta_para_tecnico(usuario, orden):
             return respuesta_orden_ajena()
-        datos = json.loads(request.body)
-        codigo = datos.get('codigo')
+        datos = leer_json(request)
+        codigo = texto_seguro(datos.get('codigo'), 20)
         resultado = datos.get('resultado', 'OK')
-        descripcion = datos.get('desc', '')
-        motivo = str(datos.get('motivo', '') or '').strip()
+        descripcion = texto_seguro(datos.get('desc'), 250)
+        motivo = texto_seguro(datos.get('motivo'))
 
         if not codigo:
             return JsonResponse({'error': 'El código del checklist es obligatorio'}, status=400)
@@ -536,11 +642,11 @@ def api_actualizar_checklist(request, orden_id):
         })
     except OrdenServicio.DoesNotExist:
         return JsonResponse({'error': 'Orden no encontrada'}, status=404)
-    except Exception as error:
-        return JsonResponse({'error': str(error)}, status=500)
+    except Exception:
+        return error_interno('Error al actualizar el checklist')
 
 
-@csrf_exempt
+@api_roles_permitidos(['tecnico', 'docente'])
 def api_agregar_observacion(request, orden_id):
     """POST: Registra anotación en la bitácora técnica de la orden."""
     if request.method != 'POST':
@@ -550,13 +656,23 @@ def api_agregar_observacion(request, orden_id):
         orden = OrdenServicio.objects.get(id=orden_id)
         if orden_oculta_para_tecnico(obtener_usuario_actual(request), orden):
             return respuesta_orden_ajena()
-        datos = json.loads(request.body)
-        texto = datos.get('texto', '').strip()
-        autor = datos.get('autor', '').strip() or 'Técnico de Turno'
-        criticidad = datos.get('criticidad', 'Baja')
+        datos = leer_json(request)
+        texto = texto_seguro(datos.get('texto'))
+        hallazgo_legal = datos.get('hallazgoLegal') is True
+        # El autor sale de la sesión (no del navegador) para que la bitácora no se pueda suplantar
+        autor = obtener_usuario_actual(request).nombre_completo
+        criticidad = datos.get('criticidad') if datos.get('criticidad') in CRITICIDADES_VALIDAS else 'Baja'
 
         if not texto:
             return JsonResponse({'error': 'El texto de la observación no puede estar vacío'}, status=400)
+
+        if hallazgo_legal:
+            # Protocolo ante contenido ilegal: no se copia el contenido, se alerta al docente y se detiene el trabajo
+            texto = f'[HALLAZGO LEGAL] {texto}'
+            criticidad = 'Alta'
+            orden.estado = 'Pausado'
+            orden.save()
+            registro.warning('Hallazgo legal reportado: orden=%s por=%s', orden.id, obtener_usuario_actual(request))
 
         obs = ObservacionOrden.objects.create(
             orden=orden,
@@ -577,11 +693,11 @@ def api_agregar_observacion(request, orden_id):
         })
     except OrdenServicio.DoesNotExist:
         return JsonResponse({'error': 'Orden no encontrada'}, status=404)
-    except Exception as error:
-        return JsonResponse({'error': str(error)}, status=500)
+    except Exception:
+        return error_interno('Error al guardar la observación')
 
 
-@csrf_exempt
+@api_roles_permitidos(['docente'])
 def api_guardar_visto_bueno(request, orden_id):
     """
     POST: Certificación y firma de Visto Bueno.
@@ -591,16 +707,13 @@ def api_guardar_visto_bueno(request, orden_id):
         return JsonResponse({'error': 'Use POST'}, status=405)
 
     usuario = obtener_usuario_actual(request)
-    if usuario and usuario.rol not in ['docente', 'admin']:
-        return JsonResponse({
-            'error': 'Acceso denegado: El Visto Bueno requiere rol Docente Supervisor.'
-        }, status=403)
 
     try:
         orden = OrdenServicio.objects.get(id=orden_id)
-        datos = json.loads(request.body)
-        docente = datos.get('docente', '').strip() or (usuario.nombre_completo if usuario else 'Docente Supervisor')
-        comentario = datos.get('comentario', '').strip() or 'Certificado en banco de prueba.'
+        datos = leer_json(request)
+        # La firma del V°B° sale de la sesión: el docente no puede firmar a nombre de otro
+        docente = usuario.nombre_completo
+        comentario = texto_seguro(datos.get('comentario')) or 'Certificado en banco de prueba.'
 
         VistoBuenoDocente.objects.update_or_create(
             orden=orden,
@@ -614,17 +727,18 @@ def api_guardar_visto_bueno(request, orden_id):
         orden.estado = 'Listo para Entrega'
         orden.save()
 
+        registro.info('Visto bueno registrado: orden=%s docente=%s', orden.id, usuario)
         return JsonResponse({
             'mensaje': 'Visto Bueno Docente registrado. Orden lista para entrega.',
-            'orden': orden.a_diccionario_completo()
+            'orden': dic_orden(orden, usuario)
         })
     except OrdenServicio.DoesNotExist:
         return JsonResponse({'error': 'Orden no encontrada'}, status=404)
-    except Exception as error:
-        return JsonResponse({'error': str(error)}, status=500)
+    except Exception:
+        return error_interno('Error al guardar el visto bueno')
 
 
-@csrf_exempt
+@api_roles_permitidos(['recepcion'])
 def api_guardar_entrega(request, orden_id):
     """
     POST: Registra la entrega final del equipo y la encuesta.
@@ -634,20 +748,29 @@ def api_guardar_entrega(request, orden_id):
         return JsonResponse({'error': 'Use POST'}, status=405)
 
     usuario = obtener_usuario_actual(request)
-    if usuario and usuario.rol not in ['recepcion', 'admin']:
-        return JsonResponse({
-            'error': 'Acceso denegado: La entrega y encuesta solo puede ser realizada por el Mesón de Recepción.'
-        }, status=403)
 
     try:
         orden = OrdenServicio.objects.get(id=orden_id)
-        datos = json.loads(request.body)
+        datos = leer_json(request)
 
-        nota = int(datos.get('nota', 5))
-        comentario = datos.get('comentario', '')
-        retirado_tercero = datos.get('retiradoPorTercero', False)
-        nombre_tercero = datos.get('nombreTercero', '')
-        rut_tercero = datos.get('rutTercero', '')
+        try:
+            nota = int(datos.get('nota', 5))
+        except (TypeError, ValueError):
+            nota = 0
+        if not 1 <= nota <= 5:
+            return JsonResponse({'error': 'La nota de satisfacción debe estar entre 1 y 5.'}, status=400)
+        comentario = texto_seguro(datos.get('comentario'))
+        retirado_tercero = datos.get('retiradoPorTercero') is True
+        nombre_tercero = texto_seguro(datos.get('nombreTercero'), MAX_NOMBRE)
+        rut_tercero = texto_seguro(datos.get('rutTercero'), 20)
+        if retirado_tercero:
+            if not nombre_tercero or not validar_rut(rut_tercero):
+                return JsonResponse({
+                    'error': 'Si retira un tercero debe indicar su nombre y un RUT válido.'
+                }, status=400)
+            rut_tercero = formatear_rut(rut_tercero)
+        else:
+            nombre_tercero, rut_tercero = '', ''
 
         EvaluacionSatisfaccion.objects.update_or_create(
             orden=orden,
@@ -665,20 +788,22 @@ def api_guardar_entrega(request, orden_id):
         orden.fecha_cierre = timezone.now()
         orden.save()
 
+        registro.info('Entrega registrada: orden=%s por=%s tercero=%s', orden.id, usuario, retirado_tercero)
         return JsonResponse({
             'mensaje': 'Entrega final registrada.',
-            'orden': orden.a_diccionario_completo()
+            'orden': dic_orden(orden, usuario)
         })
     except OrdenServicio.DoesNotExist:
         return JsonResponse({'error': 'Orden no encontrada'}, status=404)
-    except Exception as error:
-        return JsonResponse({'error': str(error)}, status=500)
+    except Exception:
+        return error_interno('Error al registrar la entrega')
 
 
 # ==============================================================================
 # ENDPOINT DE MÉTRICAS Y ESTADÍSTICAS
 # ==============================================================================
 
+@api_roles_permitidos(['docente'])
 def api_obtener_metricas(request):
     """GET: Retorna contadores calculados desde SQLite."""
     total = OrdenServicio.objects.count()
@@ -720,15 +845,12 @@ def api_obtener_metricas(request):
 # ENDPOINT PARA RESTAURAR / POBLAR DATOS DE DEMOSTRACIÓN (Semilla Local)
 # ==============================================================================
 
-@csrf_exempt
-def api_restaurar_datos_demo(request):
+def sembrar_datos_demo():
     """
-    POST: Carga los datos de demostración en nuestra propia base de datos SQLite.
+    Carga los datos de demostración en nuestra propia base de datos SQLite.
     Crea usuarios propios en la tabla Usuario y órdenes de prueba.
+    Devuelve (ok, mensaje). La usan el comando 'poblar_datos' y el endpoint de administración.
     """
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Use POST'}, status=405)
-
     try:
         with transaction.atomic():
             # 1. Creamos los usuarios propios de la Clínica en nuestra tabla Usuario
@@ -761,21 +883,21 @@ def api_restaurar_datos_demo(request):
 
             # 3. Propietarios
             p1 = Propietario.objects.create(
-                rut="18.452.910-3",
+                rut="18.452.910-6",
                 nombre_completo="Carlos Vega Morales",
                 telefono="+56 9 8452 1190",
                 correo="carlos.vega@gmail.com",
                 comuna="San Pedro de la Paz"
             )
             p2 = Propietario.objects.create(
-                rut="12.784.331-K",
+                rut="12.784.331-7",
                 nombre_completo="María Elena Fuentes",
                 telefono="+56 9 7781 4420",
                 correo="m.fuentes@inacap.cl",
                 comuna="Concepción"
             )
             p3 = Propietario.objects.create(
-                rut="20.119.458-2",
+                rut="20.119.458-K",
                 nombre_completo="Rodrigo Parra Alarcón",
                 telefono="+56 9 6321 0098",
                 correo="rodrigo.parra20@inacapmail.cl",
@@ -907,7 +1029,39 @@ def api_restaurar_datos_demo(request):
                 comentario="Excelente servicio de los estudiantes, quedó impecable y muy rápido."
             )
 
-            return JsonResponse({'mensaje': 'Base de datos poblada exitosamente con usuarios locales y órdenes de prueba.'})
+            return True, 'Base de datos poblada exitosamente con usuarios locales y órdenes de prueba.'
 
-    except Exception as error:
-        return JsonResponse({'error': f'Error al restaurar: {str(error)}'}, status=500)
+    except Exception:
+        registro.exception('Error al restaurar los datos de demostración')
+        return False, 'No se pudieron restaurar los datos de demostración.'
+
+
+@api_roles_permitidos(['admin'])
+def api_restaurar_datos_demo(request):
+    """
+    POST: Restaura los datos de demostración.
+    CONTROL DE ACCESO: solo el Administrador, y solo en modo desarrollo (borra todas las órdenes).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Use POST'}, status=405)
+    if not settings.DEBUG:
+        return JsonResponse({'error': 'Operación deshabilitada en modo producción.'}, status=403)
+
+    ok, mensaje = sembrar_datos_demo()
+    registro.warning('Datos de demostración restaurados por %s (ok=%s)', obtener_usuario_actual(request), ok)
+    if ok:
+        return JsonResponse({'mensaje': mensaje})
+    return JsonResponse({'error': mensaje}, status=500)
+
+
+def api_salud(request):
+    """
+    GET público y mínimo para monitorear la disponibilidad (continuidad operacional).
+    No entrega datos del sistema: solo confirma si el servidor y la base de datos responden.
+    """
+    try:
+        OrdenServicio.objects.exists()
+    except Exception:
+        registro.exception('Falla de disponibilidad de la base de datos')
+        return JsonResponse({'estado': 'error'}, status=503)
+    return JsonResponse({'estado': 'ok'})

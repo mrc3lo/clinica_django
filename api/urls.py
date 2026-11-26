@@ -36,6 +36,9 @@ urlpatterns = [
     path('admin/checklists/', views_admin.api_listar_plantillas, name='api_admin_checklists'),
     path('admin/checklists/importar/', views_admin.api_importar_checklists, name='api_importar_checklists'),
 
+    # Disponibilidad (monitoreo)
+    path('salud/', views.api_salud, name='api_salud'),
+
     # Semilla de datos de prueba
     path('restaurar-datos/', views.api_restaurar_datos_demo, name='api_restaurar_datos'),
 ]

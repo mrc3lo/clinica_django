@@ -244,6 +244,8 @@ class OrdenServicio(models.Model):
             'checklists': checklists_dict,
             'observaciones': lista_observaciones,
             'vistoBuenoDocente': datos_visto_bueno,
+            # Alerta para el docente: un técnico reportó un posible contenido ilegal en el equipo
+            'hallazgoLegal': any(o['texto'].startswith('[HALLAZGO LEGAL]') for o in lista_observaciones),
             'encuesta': datos_encuesta,
             # Datos aplanados útiles para las tablas y tarjetas del frontend
             'dispositivo': {

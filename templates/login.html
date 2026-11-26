@@ -40,6 +40,7 @@
 
     <!-- Accesos rápidos de prueba organizados por rol y función -->
     <div class="demo-credentials-box">
+      {% if mostrar_demo %}
       <h4>🔑 Perfiles del Sistema (Click para auto-completar):</h4>
       <div class="demo-credentials-list">
         <div class="demo-chip" onclick="cargarDemo('docente', 'docente123')">
@@ -59,6 +60,7 @@
           <small style="color:#BE123C;">Acceso total a todo</small>
         </div>
       </div>
+      {% endif %}
       <div style="margin-top: 0.75rem; text-align: center;">
         <a href="/preinscripcion/" style="color: #0071E3; font-weight: 600; text-decoration: none;">
           📱 Ir a Pre-inscripción Pública (Sin login)

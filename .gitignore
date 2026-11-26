@@ -37,3 +37,6 @@ staticfiles/
 
 # Temporary / Scratch
 scratch/
+
+# Respaldos locales de la base de datos
+respaldos/

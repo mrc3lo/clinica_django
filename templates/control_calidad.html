@@ -145,10 +145,10 @@
           const tieneVB = !!o.vistoBuenoDocente;
 
           tr.innerHTML = `
-            <td><span class="kanban-code">${o.etiquetaTaller}</span></td>
-            <td><strong>${o.dispositivo.tipo} ${o.dispositivo.marca}</strong> <span style="color:var(--gris-medio);">${o.dispositivo.modelo}</span></td>
+            <td><span class="kanban-code">${AppUtils.escapar(o.etiquetaTaller)}</span></td>
+            <td><strong>${AppUtils.escapar(o.dispositivo.tipo)} ${AppUtils.escapar(o.dispositivo.marca)}</strong> <span style="color:var(--gris-medio);">${AppUtils.escapar(o.dispositivo.modelo)}</span></td>
             <td><span style="font-weight:700;">${AppUtils.textoServicios(o)}</span></td>
-            <td>${o.tecnicoAsignado || '<em style="color:var(--inacap-rojo);">Sin asignar</em>'}</td>
+            <td>${o.tecnicoAsignado ? AppUtils.escapar(o.tecnicoAsignado) : '<em style="color:var(--inacap-rojo);">Sin asignar</em>'}</td>
             <td>${AppUtils.textoEncendido(o.encendidoInicial)}</td>
             <td>${AppUtils.getStatusBadge(o.estado)}</td>
             <td>

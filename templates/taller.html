@@ -181,6 +181,9 @@
         <button class="btn btn-outline btn-sm" onclick="pausarOrdenTraspaso()">
           Pausar / Traspasar Turno
         </button>
+        <button class="btn btn-outline btn-sm" onclick="reportarHallazgoLegal()" title="Protocolo ante contenido ilegal">
+          Reportar hallazgo legal
+        </button>
         <div style="display: flex; gap: 0.5rem;">
           <button class="btn btn-outline btn-sm" onclick="AppUtils.closeModal('modal-taller')">Cerrar</button>
           <button class="btn btn-primary btn-sm" onclick="solicitarVistoBuenoDocente()">
@@ -559,7 +562,7 @@
       try {
         const r = await fetch(`/api/ordenes/${ordenActivaId}/`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: ClinicaAPI.cabeceras(),
           body: JSON.stringify({ encendidoInicial: valor })
         });
         if (!r.ok) throw new Error((await r.json()).error || 'No se pudo guardar');
@@ -580,7 +583,7 @@
       try {
         const r = await fetch(`/api/ordenes/${ordenActivaId}/`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: ClinicaAPI.cabeceras(),
           body: JSON.stringify({ numeroSerie: serie })
         });
         if (!r.ok) throw new Error((await r.json()).error || 'No se pudo guardar');
@@ -622,6 +625,25 @@
         renderKanban();
       } catch (e) {
         AppUtils.showToast('No se pudo pausar la orden', 'danger');
+      }
+    }
+
+    // Protocolo ante contenido posiblemente ilegal: no se copia ni se abre el contenido; se detiene el trabajo y se avisa al docente
+    async function reportarHallazgoLegal() {
+      const descripcion = await AppUtils.pedirTexto(
+        'Reportar hallazgo legal',
+        'Describe en general lo que observaste SIN copiar ni compartir el contenido. La orden se pausa y el docente será alertado.',
+        { textoOk: 'Reportar al docente', placeholder: 'Descripción general del hallazgo...' }
+      );
+      if (descripcion === null || !descripcion.trim()) return;
+      const autor = (usuarioActual && usuarioActual.nombre_completo) || 'Técnico';
+      try {
+        await ClinicaAPI.agregarObservacion(ordenActivaId, descripcion, autor, 'Alta', true);
+        AppUtils.closeModal('modal-taller');
+        AppUtils.showToast('Hallazgo reportado. La orden quedó pausada y el docente fue alertado.', 'warning');
+        renderKanban();
+      } catch (e) {
+        AppUtils.showToast('No se pudo reportar el hallazgo', 'danger');
       }
     }
 

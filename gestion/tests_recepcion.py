@@ -4,17 +4,18 @@ Pruebas de la búsqueda de titulares por nombre/RUT y del registro del número d
 
 import json
 from django.test import TestCase, Client
+from gestion.utiles_tests import cliente_con_sesion
 
 
 class PruebasRecepcion(TestCase):
     def setUp(self):
-        self.c = Client()
+        self.c = cliente_con_sesion("admin")
         self.ids = {}
-        for rut, nombre in [('18.452.910-3', 'Carlos Vega Morales'),
-                            ('12.784.331-K', 'María Elena Fuentes'),
-                            ('20.119.458-2', 'Carla Vega Núñez')]:
+        for rut, nombre in [('18.452.910-6', 'Carlos Vega Morales'),
+                            ('12.784.331-7', 'María Elena Fuentes'),
+                            ('20.119.458-K', 'Carla Vega Núñez')]:
             r = self.c.post('/api/ordenes/', json.dumps({
-                'rut': rut, 'nombre': nombre, 'fallaReportada': 'x'}), content_type='application/json')
+                'consentimiento': True, 'rut': rut, 'nombre': nombre, 'fallaReportada': 'x'}), content_type='application/json')
             self.ids[nombre] = r.json()['orden']['idOrden']
 
     def buscar(self, q):
@@ -32,10 +33,10 @@ class PruebasRecepcion(TestCase):
         self.assertEqual(self.buscar('vega carlos'), ['Carlos Vega Morales'])  # el orden de las palabras no importa
 
     def test_03_busca_por_rut_completo_o_parcial_con_o_sin_formato(self):
-        self.assertEqual(self.buscar('18.452.910-3'), ['Carlos Vega Morales'])
+        self.assertEqual(self.buscar('18.452.910-6'), ['Carlos Vega Morales'])
         self.assertEqual(self.buscar('18452910'), ['Carlos Vega Morales'])
         self.assertEqual(self.buscar('12.784'), ['María Elena Fuentes'])
-        self.assertEqual(self.buscar('12784331k'), ['María Elena Fuentes'])
+        self.assertEqual(self.buscar('20119458k'), ['Carla Vega Núñez'])
 
     def test_04_una_letra_sola_no_cuenta_como_rut(self):
         # "k" no tiene números: no debe coincidir con el RUT terminado en K

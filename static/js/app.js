@@ -9,7 +9,7 @@ window.AppUtils = {
     return typeof rut === 'string' ? rut.replace(/[^0-9kK]/g, '').toUpperCase() : '';
   },
 
-  // Formatea un RUT chileno con puntos y guion (ej: 18.452.910-3)
+  // Formatea un RUT chileno con puntos y guion (ej: 18.452.910-6)
   formatRut(rut) {
     let clean = this.cleanRut(rut);
     if (clean.length < 2) return clean;
@@ -275,7 +275,7 @@ window.AppUtils = {
     const revisados = items.filter(i => i.res !== 'PENDIENTE').length;
     const fallas = items.filter(i => i.res === 'FALLA');
     const observaciones = orden.observaciones || [];
-    const esEvento = o => o.texto.startsWith('[PAUSA') || o.texto.startsWith('[ENVÍO');
+    const esEvento = o => o.texto.startsWith('[PAUSA') || o.texto.startsWith('[ENVÍO') || o.texto.startsWith('[HALLAZGO');
     const traspasos = observaciones.filter(esEvento);
     const notas = observaciones.filter(o => !esEvento(o));
     const d = orden.dispositivo || {};

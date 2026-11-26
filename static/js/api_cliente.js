@@ -8,6 +8,17 @@ window.ClinicaAPI = {
   // URL base de los endpoints REST
   baseUrl: '/api',
 
+  // Token CSRF (OWASP A01): Django lo entrega en una cookie y toda petición que modifica datos debe devolverlo
+  csrfToken() {
+    const coincidencia = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return coincidencia ? decodeURIComponent(coincidencia[1]) : '';
+  },
+
+  // Cabeceras estándar para enviar JSON con el token CSRF
+  cabeceras() {
+    return { 'Content-Type': 'application/json', 'X-CSRFToken': this.csrfToken() };
+  },
+
   // --------------------------------------------------------------------------
   // 1. MÓDULO DE AUTENTICACIÓN
   // --------------------------------------------------------------------------
@@ -17,7 +28,7 @@ window.ClinicaAPI = {
     try {
       const respuesta = await fetch(`${this.baseUrl}/autenticacion/login/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.cabeceras(),
         body: JSON.stringify({ usuario, clave })
       });
       const datos = await respuesta.json();
@@ -34,7 +45,7 @@ window.ClinicaAPI = {
     try {
       const respuesta = await fetch(`${this.baseUrl}/autenticacion/logout/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: this.cabeceras()
       });
       window.location.href = '/login/';
     } catch (error) {
@@ -93,7 +104,7 @@ window.ClinicaAPI = {
     try {
       const respuesta = await fetch(`${this.baseUrl}/ordenes/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.cabeceras(),
         body: JSON.stringify(datosOrden)
       });
       const resultado = await respuesta.json();
@@ -113,7 +124,7 @@ window.ClinicaAPI = {
 
       const respuesta = await fetch(`${this.baseUrl}/ordenes/${ordenId}/estado/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.cabeceras(),
         body: JSON.stringify(payload)
       });
       const data = await respuesta.json();
@@ -130,7 +141,7 @@ window.ClinicaAPI = {
     try {
       const respuesta = await fetch(`${this.baseUrl}/ordenes/${ordenId}/checklists/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.cabeceras(),
         body: JSON.stringify({ codigo: codigoItem, resultado, desc: descripcion, motivo })
       });
       const data = await respuesta.json();
@@ -143,12 +154,12 @@ window.ClinicaAPI = {
   },
 
   // Registra una anotación u observación técnica en la bitácora
-  async agregarObservacion(ordenId, texto, autor = 'Técnico', criticidad = 'Baja') {
+  async agregarObservacion(ordenId, texto, autor = 'Técnico', criticidad = 'Baja', hallazgoLegal = false) {
     try {
       const respuesta = await fetch(`${this.baseUrl}/ordenes/${ordenId}/observaciones/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texto, autor, criticidad })
+        headers: this.cabeceras(),
+        body: JSON.stringify({ texto, autor, criticidad, hallazgoLegal })
       });
       const data = await respuesta.json();
       if (!respuesta.ok) throw new Error(data.error || 'Error al guardar observación');
@@ -164,7 +175,7 @@ window.ClinicaAPI = {
     try {
       const respuesta = await fetch(`${this.baseUrl}/ordenes/${ordenId}/visto-bueno/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.cabeceras(),
         body: JSON.stringify({ docente: nombreDocente, comentario })
       });
       const data = await respuesta.json();
@@ -181,7 +192,7 @@ window.ClinicaAPI = {
     try {
       const respuesta = await fetch(`${this.baseUrl}/ordenes/${ordenId}/entrega/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.cabeceras(),
         body: JSON.stringify(datosEntrega)
       });
       const data = await respuesta.json();
@@ -198,7 +209,7 @@ window.ClinicaAPI = {
     try {
       const respuesta = await fetch(`${this.baseUrl}/ordenes/${ordenId}/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.cabeceras(),
         body: JSON.stringify({ llamadaRealizada })
       });
       return await respuesta.json();
@@ -254,7 +265,7 @@ window.ClinicaAPI = {
     try {
       const respuesta = await fetch(`${this.baseUrl}/restaurar-datos/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: this.cabeceras()
       });
       const data = await respuesta.json();
       return data;

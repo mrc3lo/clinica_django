@@ -121,7 +121,7 @@ python3 manage.py test
 ```
 Salida esperada:
 ```text
-Ran 5 tests in 10.3s - OK
+Ran 57 tests - OK
 ```
 
 ---
@@ -148,3 +148,14 @@ Instalación rápida: `pip install -r requirements.txt`, luego `python manage.py
 ## 🎓 8. Perfil Docente
 
 El docente solo ve **Panel**, **V°B° Calidad**, **Estudiantes** y **Métricas**. En **Estudiantes** (`/estudiantes/`) revisa los equipos que atendió cada estudiante técnico, con su estado, fallas y bitácora. No accede a Pre-inscripción, Mesón de Recepción, Taller ni Retiro y Cierre (este último es del mesón de recepción: llamada al titular, prueba de entrega y encuesta). Su panel muestra únicamente los módulos que le corresponden.
+
+
+## 🛡️ 9. Seguridad (OWASP Top 10)
+
+- **Variables de entorno** (ver `.env.example`): `CLINICA_DEBUG` (1 = desarrollo, valor por defecto), `CLINICA_SECRET_KEY` (obligatoria con `CLINICA_DEBUG=0`) y `CLINICA_ALLOWED_HOSTS`. Los accesos de demostración del login solo aparecen en modo desarrollo; las cuentas de este README son solo de prueba.
+- **API:** todos los endpoints exigen sesión y rol (el público solo puede crear una pre-inscripción, siempre en estado `Preinscrito`). El técnico recibe el RUT enmascarado desde el servidor.
+- **CSRF:** toda petición que modifica datos envía el token en la cabecera `X-CSRFToken` (lo agrega `ClinicaAPI.cabeceras()`).
+- **Validación en servidor:** RUT (módulo 11), teléfono, correo, estados, nota 1-5 y largos máximos (`gestion/validadores.py`).
+- **Login:** bloqueo temporal tras 5 intentos fallidos, sesión regenerada al entrar, cookies HttpOnly y SameSite, contraseñas solo con hash.
+- **Bitácora de seguridad:** logger `clinica` (logins fallidos, bloqueos, cambios de estado, V°B°, entregas).
+- Pruebas: `gestion/tests_seguridad.py`. Revisión de despliegue: `CLINICA_DEBUG=0 CLINICA_SECRET_KEY=... python manage.py check --deploy`.

@@ -142,7 +142,7 @@
         datos.append('confirmar', confirmar ? '1' : '0');
         salida.innerHTML = '<p class="cargando-txt" style="margin-top:1rem;">Procesando archivo...</p>';
         try {
-          const r = await fetch(urlImportar, { method: 'POST', body: datos });
+          const r = await fetch(urlImportar, { method: 'POST', headers: { 'X-CSRFToken': ClinicaAPI.csrfToken() }, body: datos });
           const json = await r.json();
           if (!r.ok) {
             salida.innerHTML = `<p style="margin-top:1rem; color:#B4101F; font-weight:700;">${esc(json.error || 'No se pudo procesar el archivo.')}</p>`;

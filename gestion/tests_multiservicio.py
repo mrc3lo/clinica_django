@@ -4,14 +4,15 @@ Pruebas de órdenes con más de un servicio.
 
 import json
 from django.test import TestCase, Client
+from gestion.utiles_tests import cliente_con_sesion
 
 
 class PruebasMultiServicio(TestCase):
     def setUp(self):
-        self.c = Client()
+        self.c = cliente_con_sesion("admin")
 
     def crear(self, **extra):
-        datos = {'rut': '11.111.111-1', 'nombre': 'Cliente', 'fallaReportada': 'Lento'}
+        datos = {'consentimiento': True, 'rut': '11.111.111-1', 'nombre': 'Cliente', 'fallaReportada': 'Lento'}
         datos.update(extra)
         r = self.c.post('/api/ordenes/', json.dumps(datos), content_type='application/json')
         self.assertEqual(r.status_code, 201)

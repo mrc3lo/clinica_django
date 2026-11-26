@@ -107,20 +107,20 @@ class PruebasImportacionCSV(TestCase):
         csv = 'tipo_servicio;codigo;descripcion\nFormateo;Z-01;Paso uno\nFormateo;Z-02;Paso dos\n'
         self.importar('/api/admin/checklists/importar/', csv, True)
         r = self.cliente.post('/api/ordenes/', json.dumps({
-            'rut': '11.111.111-1', 'nombre': 'Cliente Prueba', 'tipoServicio': 'Formateo',
+            'consentimiento': True, 'rut': '11.111.111-1', 'nombre': 'Cliente Prueba', 'tipoServicio': 'Formateo',
             'fallaReportada': 'Lento'}), content_type='application/json')
         self.assertEqual(r.status_code, 201)
         self.assertEqual(list(r.json()['orden']['checklists'].keys()), ['Z-01', 'Z-02'])
 
     def test_07_orden_nueva_sin_plantilla_usa_catalogo_por_defecto(self):
         r = self.cliente.post('/api/ordenes/', json.dumps({
-            'rut': '22.222.222-2', 'nombre': 'Otro Cliente', 'tipoServicio': 'Mantención Lógica',
+            'consentimiento': True, 'rut': '22.222.222-2', 'nombre': 'Otro Cliente', 'tipoServicio': 'Mantención Lógica',
             'fallaReportada': 'Lento'}), content_type='application/json')
         self.assertEqual(list(r.json()['orden']['checklists'].keys()), ['L-01', 'L-02', 'L-03', 'L-04', 'L-05'])
 
     def test_08_ordenes_existentes_no_cambian_al_cargar_plantilla(self):
         r = self.cliente.post('/api/ordenes/', json.dumps({
-            'rut': '33.333.333-3', 'nombre': 'Cliente', 'tipoServicio': 'Formateo',
+            'consentimiento': True, 'rut': '33.333.333-3', 'nombre': 'Cliente', 'tipoServicio': 'Formateo',
             'fallaReportada': 'x'}), content_type='application/json')
         id_orden = r.json()['orden']['idOrden']
         self.entrar('admin_t')

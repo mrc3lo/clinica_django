@@ -3,19 +3,32 @@ Configuración principal de Django para el proyecto Clínica del PC INACAP.
 Desarrollado como prototipo funcional para la asignatura de Ingeniería de Software.
 """
 
+import os
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 # Directorio base del proyecto
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Clave secreta para desarrollo local
-SECRET_KEY = 'django-insecure-clinica-pc-inacap-clave-secreta-estudiante-2026'
+# ==============================================================================
+# CONFIGURACIÓN SEGURA POR VARIABLES DE ENTORNO (OWASP A02 / A05)
+# Los secretos y los modos de ejecución ya no están escritos en el código.
+#   CLINICA_DEBUG=0          -> modo producción (por defecto es 1 = desarrollo local)
+#   CLINICA_SECRET_KEY=...   -> obligatoria cuando CLINICA_DEBUG=0
+#   CLINICA_ALLOWED_HOSTS=a,b -> hosts permitidos (por defecto solo localhost)
+# ==============================================================================
+DEBUG = os.environ.get('CLINICA_DEBUG', '1') == '1'
 
-# Modo depuración activo para ver errores claramente durante el desarrollo
-DEBUG = True
+SECRET_KEY = os.environ.get('CLINICA_SECRET_KEY', '')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('Falta la variable de entorno CLINICA_SECRET_KEY en modo producción.')
+    # Clave solo para desarrollo local: nunca se usa si DEBUG está apagado
+    SECRET_KEY = 'django-insecure-solo-desarrollo-local-clinica-pc'
 
-# Permitimos conexiones locales
-ALLOWED_HOSTS = ['*']
+# Solo se aceptan peticiones dirigidas a estos hosts (evita Host Header Injection)
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('CLINICA_ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1]').split(',') if h.strip()]
 
 # ==============================================================================
 # APLICACIONES INSTALADAS (Módulos de nuestra aplicación)
@@ -61,6 +74,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'portal.contexto.token_csrf',
             ],
         },
     },
@@ -83,9 +97,44 @@ DATABASES = {
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {'min_length': 4},  # Mínimo 4 caracteres para pruebas fáciles
+        'OPTIONS': {'min_length': 8},
     },
 ]
+
+# ==============================================================================
+# SEGURIDAD DE SESIONES, COOKIES Y CABECERAS (OWASP A05 / A07)
+# ==============================================================================
+SESSION_COOKIE_HTTPONLY = True        # el JavaScript de la página no puede leer la cookie de sesión
+SESSION_COOKIE_SAMESITE = 'Lax'       # la cookie no viaja en peticiones originadas desde otros sitios
+SESSION_COOKIE_AGE = 8 * 60 * 60      # la sesión expira a las 8 horas (una jornada)
+CSRF_COOKIE_SAMESITE = 'Lax'
+X_FRAME_OPTIONS = 'DENY'              # la aplicación no puede incrustarse en otros sitios (clickjacking)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+
+if not DEBUG:
+    # En producción (HTTPS) las cookies solo viajan cifradas
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = os.environ.get('CLINICA_SSL_REDIRECT', '1') == '1'
+    SECURE_HSTS_SECONDS = 31536000
+
+# ==============================================================================
+# BITÁCORA DE SEGURIDAD (OWASP A09): logins fallidos, bloqueos y acciones sensibles
+# ==============================================================================
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'seguridad': {'format': '{asctime} [{levelname}] {name}: {message}', 'style': '{'},
+    },
+    'handlers': {
+        'consola': {'class': 'logging.StreamHandler', 'formatter': 'seguridad'},
+    },
+    'loggers': {
+        'clinica': {'handlers': ['consola'], 'level': 'INFO', 'propagate': False},
+    },
+}
 
 # Configuración regional de idioma y zona horaria (Chile)
 LANGUAGE_CODE = 'es-cl'

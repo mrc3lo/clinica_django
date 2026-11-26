@@ -38,7 +38,7 @@ class PruebasPerfilTecnico(TestCase):
         for clave, rut in [('espera', '11.111.111-1'), ('de_ana', '22.222.222-2'),
                            ('de_beto', '33.333.333-3'), ('preinscrita', '44.444.444-4')]:
             r = publico.post('/api/ordenes/', json.dumps({
-                'rut': rut, 'nombre': f'Cliente {clave}', 'fallaReportada': 'x'}), content_type='application/json')
+                'consentimiento': True, 'rut': rut, 'nombre': f'Cliente {clave}', 'fallaReportada': 'x'}), content_type='application/json')
             self.ordenes[clave] = r.json()['orden']['idOrden']
         OrdenServicio.objects.filter(id=self.ordenes['espera']).update(estado='Recepcionado')
         OrdenServicio.objects.filter(id=self.ordenes['de_ana']).update(estado='En Taller', tecnico_asignado='Ana Técnica')

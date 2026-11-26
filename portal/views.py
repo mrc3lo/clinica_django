@@ -6,6 +6,7 @@ Los demás roles son dirigidos directamente a su lugar de trabajo:
 - Técnico: /taller/
 """
 
+from django.conf import settings
 from django.shortcuts import render, redirect
 from autenticacion.decoradores import (
     roles_permitidos, 
@@ -25,7 +26,8 @@ def vista_login(request):
         elif usuario.rol in ['docente', 'admin']:
             return redirect('portal_dashboard')
 
-    return render(request, 'login.html')
+    # Los accesos de demostración solo se muestran en modo desarrollo (nunca en producción)
+    return render(request, 'login.html', {'mostrar_demo': settings.DEBUG})
 
 
 def vista_preinscripcion(request):
